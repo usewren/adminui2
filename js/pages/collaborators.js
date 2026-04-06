@@ -7,11 +7,17 @@ export async function mountCollaborators(el, currentUser) {
   async function load() {
     render(el, spinner());
     try {
-      const [members, invites, received] = await Promise.all([
+      const [members, invites, receivedAll] = await Promise.all([
         api.listMembers().catch(() => []),
         api.listInvites().catch(() => []),
         api.listReceivedInvites().catch(() => []),
       ]);
+      // Only show pending received invites (not already accepted, revoked, or expired)
+      const now = new Date();
+      const received = receivedAll.filter(inv =>
+        !inv.acceptedAt && !inv.revokedAt &&
+        (!inv.expiresAt || new Date(inv.expiresAt) > now)
+      );
       renderAll(members, invites, received);
     } catch (err) {
       render(el, alertHtml(err.message));
@@ -164,6 +170,7 @@ export async function mountCollaborators(el, currentUser) {
       content.innerHTML = `
         <div style="margin-top:1rem" class="card">
           <div class="card-header">Invites to join other organisations</div>
+          <div id="accept-error"></div>
           ${received.length === 0
             ? `<div class="card-body"><div class="empty-state">No pending invites.</div></div>`
             : `<table class="table">
@@ -175,7 +182,7 @@ export async function mountCollaborators(el, currentUser) {
                       <td>${accessBadge(inv.role ?? "read")}</td>
                       <td class="muted">${fmtDate(inv.createdAt ?? inv.created_at)}</td>
                       <td>
-                        <button class="btn btn-sm btn-primary" data-accept="${inv.id}">Accept</button>
+                        <button class="btn btn-sm btn-primary" data-accept="${escHtml(inv.id)}">Accept</button>
                       </td>
                     </tr>`).join("")}
                 </tbody>
@@ -184,11 +191,18 @@ export async function mountCollaborators(el, currentUser) {
 
       content.querySelectorAll("[data-accept]").forEach(btn => {
         btn.addEventListener("click", async () => {
+          const errEl = content.querySelector("#accept-error");
+          errEl.innerHTML = "";
+          btn.disabled = true;
+          btn.textContent = "Accepting…";
           try {
             await api.acceptInviteById(btn.dataset.accept);
-            await load();
+            // Reload full page — now a member of a new org, sidebar needs refreshing
+            location.reload();
           } catch (err) {
-            alertHtml(err.message);
+            btn.disabled = false;
+            btn.textContent = "Accept";
+            errEl.innerHTML = alertHtml(err.message);
           }
         });
       });
