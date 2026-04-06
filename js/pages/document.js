@@ -162,6 +162,15 @@ async function renderView(el, collection, id) {
   try {
     const doc = await api.getDocument(collection, id);
     const data = doc.data ?? doc.document?.data ?? doc;
+
+    // Fall back to data-level binary detection (catches collections that have no schema set)
+    if (data?._binary === true) {
+      // Relabel the tab so it reads "Asset" not "Document"
+      const viewTab = document.querySelector(".tab[data-tab='view']");
+      if (viewTab) viewTab.textContent = "Asset";
+      await renderAsset(el, collection, id);
+      return;
+    }
     render(el, `
       <div style="margin-top:1rem" class="card">
         <div class="card-header">
