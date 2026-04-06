@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert as alertHtml, escHtml, fmtDate } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, applyDisplayRule, fmtBytes } from "../ui.js";
 
 // ── Collections list ──────────────────────────────────────────────────────────
 export async function mountCollections(el, collections, { refreshCollections }) {
@@ -64,8 +64,7 @@ export async function mountCollections(el, collections, { refreshCollections }) 
     const errEl = el.querySelector("#col-error");
     errEl.innerHTML = "";
     try {
-      // Create the collection by creating a schema placeholder
-      await api.setSchema(name, { type: "object" });
+      await api.setSchema(name, { collectionType: "json", schema: { type: "object", additionalProperties: true } });
       await refreshCollections();
       location.hash = `#/collections/${encodeURIComponent(name)}`;
     } catch (err) {
@@ -79,6 +78,11 @@ export async function mountCollection(el, collection, params, { refreshCollectio
   const tab = params.tab || "documents";
   render(el, spinner());
 
+  // Load schema once — needed by documents tab (type, displayName) and schema tab
+  const schemaData = await api.getSchema(collection).catch(() => null);
+  const collectionType = schemaData?.collectionType ?? "json";
+  const displayNameRule = schemaData?.displayName ?? null;
+
   render(el, `
     <div class="page">
       <div class="page-header">
@@ -88,7 +92,9 @@ export async function mountCollection(el, collection, params, { refreshCollectio
         </div>
       </div>
       <div class="tabs" id="col-tabs">
-        <button class="tab${tab === "documents" ? " active" : ""}" data-tab="documents">Documents</button>
+        <button class="tab${tab === "documents" ? " active" : ""}" data-tab="documents">
+          ${collectionType === "binary" ? "Assets" : "Documents"}
+        </button>
         <button class="tab${tab === "schema" ? " active" : ""}" data-tab="schema">Schema</button>
         <button class="tab${tab === "access" ? " active" : ""}" data-tab="access">Access</button>
       </div>
@@ -98,32 +104,27 @@ export async function mountCollection(el, collection, params, { refreshCollectio
   el.querySelector("#col-tabs").addEventListener("click", e => {
     const btn = e.target.closest(".tab");
     if (!btn) return;
-    const t = btn.dataset.tab;
-    location.hash = `#/collections/${encodeURIComponent(collection)}?tab=${t}`;
+    location.hash = `#/collections/${encodeURIComponent(collection)}?tab=${btn.dataset.tab}`;
   });
 
   const content = el.querySelector("#tab-content");
-  if (tab === "documents") await renderDocuments(content, collection);
-  else if (tab === "schema") await renderSchema(content, collection);
+  if (tab === "documents") await renderDocuments(content, collection, collectionType, displayNameRule);
+  else if (tab === "schema") await renderSchema(content, collection, schemaData);
   else if (tab === "access") await renderAccess(content, collection);
 }
 
 // ── Documents tab ─────────────────────────────────────────────────────────────
 const PAGE_SIZE = 20;
 
-async function renderDocuments(el, collection) {
-  render(el, spinner());
-
-  let offset = 0;
-  let total = 0;
+async function renderDocuments(el, collection, collectionType, displayNameRule) {
+  const isBinary = collectionType === "binary";
 
   async function load(off) {
     render(el, spinner());
     try {
       const res = await api.listDocuments(collection, PAGE_SIZE, off);
       const items = res.items ?? res.documents ?? [];
-      total = res.total ?? items.length;
-      offset = off;
+      const total = res.total ?? items.length;
       renderList(items, total, off);
     } catch (err) {
       render(el, alertHtml(err.message));
@@ -131,12 +132,31 @@ async function renderDocuments(el, collection) {
   }
 
   function renderList(items, total, off) {
+    const newBtnLabel = isBinary ? "Upload file" : "New document";
+
     render(el, `
       <div style="margin-top:1rem">
         <div class="page-header" style="margin-bottom:.75rem">
-          <span class="muted">${total} document${total !== 1 ? "s" : ""}</span>
-          <button class="btn btn-primary" id="new-doc-btn">New document</button>
+          <span class="muted">${total} ${isBinary ? "asset" : "document"}${total !== 1 ? "s" : ""}</span>
+          <button class="btn btn-primary" id="new-doc-btn">${newBtnLabel}</button>
         </div>
+
+        ${isBinary ? `
+        <div id="new-doc-form" class="card" style="display:none;margin-bottom:1rem">
+          <div class="card-body">
+            <form id="create-doc-form">
+              <div class="field">
+                <label class="field-label">File</label>
+                <input class="input" type="file" name="file" required>
+              </div>
+              <div id="new-doc-error"></div>
+              <div class="row-actions">
+                <button class="btn btn-primary" type="submit">Upload</button>
+                <button class="btn" type="button" id="cancel-doc-btn">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>` : `
         <div id="new-doc-form" class="card" style="display:none;margin-bottom:1rem">
           <div class="card-body">
             <form id="create-doc-form">
@@ -155,20 +175,49 @@ async function renderDocuments(el, collection) {
               </div>
             </form>
           </div>
-        </div>
+        </div>`}
+
         <div id="doc-list-error"></div>
         ${items.length === 0
-          ? `<div class="empty-state">No documents yet.</div>`
+          ? `<div class="empty-state">No ${isBinary ? "assets" : "documents"} yet.</div>`
           : `<div class="card">
               <table class="table">
-                <thead><tr><th>ID</th><th>Updated</th><th>Version</th></tr></thead>
+                <thead><tr>
+                  ${isBinary
+                    ? `<th>Filename</th><th>Type</th><th>Size</th>`
+                    : `<th>ID / Preview</th><th>Labels</th>`}
+                  <th>Version</th><th>Updated</th>
+                </tr></thead>
                 <tbody>
-                  ${items.map(d => `
-                    <tr class="clickable-row" data-href="#/collections/${encodeURIComponent(collection)}/${encodeURIComponent(d.id)}">
-                      <td><a class="link" href="#/collections/${encodeURIComponent(collection)}/${encodeURIComponent(d.id)}">${escHtml(d.id)}</a></td>
-                      <td class="muted">${fmtDate(d.updatedAt ?? d.updated_at)}</td>
-                      <td class="muted">${escHtml(String(d.version ?? ""))}</td>
-                    </tr>`).join("")}
+                  ${items.map(d => {
+                    const href = `#/collections/${encodeURIComponent(collection)}/${encodeURIComponent(d.id)}`;
+                    if (isBinary) {
+                      const meta = d.data ?? {};
+                      return `<tr class="clickable-row" data-href="${href}">
+                        <td><a class="link" href="${href}">${escHtml(meta.filename ?? d.id)}</a></td>
+                        <td class="muted">${escHtml(meta.mimeType ?? "")}</td>
+                        <td class="muted">${fmtBytes(meta.size)}</td>
+                        <td class="muted">${escHtml(String(d.version ?? ""))}</td>
+                        <td class="muted">${fmtDate(d.updatedAt ?? d.updated_at)}</td>
+                      </tr>`;
+                    } else {
+                      const preview = displayNameRule
+                        ? applyDisplayRule(displayNameRule, d.data)
+                        : null;
+                      const labels = d.labels ?? [];
+                      return `<tr class="clickable-row" data-href="${href}">
+                        <td>
+                          <a class="link" href="${href}">${escHtml(preview ?? d.id)}</a>
+                          ${preview ? `<span class="doc-id-sub">${escHtml(d.id)}</span>` : ""}
+                        </td>
+                        <td>
+                          ${labels.map(l => `<span class="badge badge-blue">${escHtml(l)}</span>`).join(" ")}
+                        </td>
+                        <td class="muted">${escHtml(String(d.version ?? ""))}</td>
+                        <td class="muted">${fmtDate(d.updatedAt ?? d.updated_at)}</td>
+                      </tr>`;
+                    }
+                  }).join("")}
                 </tbody>
               </table>
             </div>
@@ -180,24 +229,32 @@ async function renderDocuments(el, collection) {
         }
       </div>`);
 
-    el.querySelector("#new-doc-btn")?.addEventListener("click", () => {
+    el.querySelector("#new-doc-btn").addEventListener("click", () => {
       el.querySelector("#new-doc-form").style.display = "";
     });
     el.querySelector("#cancel-doc-btn")?.addEventListener("click", () => {
       el.querySelector("#new-doc-form").style.display = "none";
     });
+
     el.querySelector("#create-doc-form")?.addEventListener("submit", async e => {
       e.preventDefault();
-      const fd = new FormData(e.target);
       const errEl = el.querySelector("#new-doc-error");
       errEl.innerHTML = "";
-      let data;
-      try { data = JSON.parse(fd.get("data") || "{}"); }
-      catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
       try {
-        const docId = fd.get("id")?.trim();
-        if (docId) data = { ...data, id: docId };
-        const res = await api.createDocument(collection, data);
+        let res;
+        if (isBinary) {
+          const file = e.target.elements.file.files[0];
+          if (!file) { errEl.innerHTML = alertHtml("Select a file"); return; }
+          res = await api.createAsset(collection, file);
+        } else {
+          const fd = new FormData(e.target);
+          let data;
+          try { data = JSON.parse(fd.get("data") || "{}"); }
+          catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
+          const docId = fd.get("id")?.trim();
+          if (docId) data = { ...data, id: docId };
+          res = await api.createDocument(collection, data);
+        }
         const id = res.id ?? res.document?.id;
         location.hash = `#/collections/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`;
       } catch (err) {
@@ -208,7 +265,6 @@ async function renderDocuments(el, collection) {
     el.querySelector("#prev-btn")?.addEventListener("click", () => load(Math.max(0, off - PAGE_SIZE)));
     el.querySelector("#next-btn")?.addEventListener("click", () => load(off + PAGE_SIZE));
 
-    // Clickable rows
     el.querySelectorAll(".clickable-row").forEach(row => {
       row.addEventListener("click", e => {
         if (e.target.tagName === "A") return;
@@ -221,53 +277,114 @@ async function renderDocuments(el, collection) {
 }
 
 // ── Schema tab ────────────────────────────────────────────────────────────────
-async function renderSchema(el, collection) {
-  render(el, spinner());
-  try {
-    const schema = await api.getSchema(collection);
-    render(el, `
-      <div style="margin-top:1rem">
-        <div class="card">
-          <div class="card-header">
-            <span>JSON Schema</span>
-            <div class="row-actions">
-              <button class="btn btn-sm btn-primary" id="save-schema-btn">Save</button>
-              ${schema ? `<button class="btn btn-sm btn-danger" id="delete-schema-btn">Delete schema</button>` : ""}
-            </div>
-          </div>
-          <div class="card-body">
-            <div id="schema-error"></div>
-            <textarea class="input mono" id="schema-editor" rows="20" style="width:100%">${escHtml(JSON.stringify(schema?.schema ?? schema ?? {}, null, 2))}</textarea>
+async function renderSchema(el, collection, schemaData) {
+  const collectionType = schemaData?.collectionType ?? "json";
+  const displayName = schemaData?.displayName ?? "";
+  const schema = schemaData?.schema ?? {};
+  const hasSchema = schemaData != null;
+
+  render(el, `
+    <div style="margin-top:1rem">
+      ${!hasSchema ? `
+        <div class="alert" style="margin-bottom:1rem;background:#fefce8;border-color:#fde047;color:#713f12;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span>No schema is defined for this collection. Documents are accepted without validation.</span>
+          <button class="btn btn-sm" id="create-default-schema-btn" style="white-space:nowrap;flex-shrink:0">Create default schema</button>
+        </div>` : ""}
+      <div class="card">
+        <div class="card-header">
+          <span>Collection settings</span>
+          <div class="row-actions">
+            <button class="btn btn-sm btn-primary" id="save-schema-btn">Save</button>
+            ${hasSchema ? `<button class="btn btn-sm btn-danger" id="delete-schema-btn">Remove schema</button>` : ""}
           </div>
         </div>
-      </div>`);
+        <div class="card-body">
+          <div id="schema-error"></div>
 
-    el.querySelector("#save-schema-btn").addEventListener("click", async () => {
-      const errEl = el.querySelector("#schema-error");
-      errEl.innerHTML = "";
-      let body;
-      try { body = JSON.parse(el.querySelector("#schema-editor").value); }
-      catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
-      try {
-        await api.setSchema(collection, body);
-        errEl.innerHTML = `<div class="alert alert-success">Schema saved.</div>`;
-      } catch (err) {
-        errEl.innerHTML = alertHtml(err.message);
-      }
-    });
+          <div class="field" style="margin-bottom:1.25rem">
+            <label class="field-label">Collection type</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="collectionType" value="json" ${collectionType !== "binary" ? "checked" : ""}> JSON documents
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="collectionType" value="binary" ${collectionType === "binary" ? "checked" : ""}> Binary assets (files)
+              </label>
+            </div>
+          </div>
 
-    el.querySelector("#delete-schema-btn")?.addEventListener("click", async () => {
-      if (!confirm("Delete schema for this collection?")) return;
-      try {
-        await api.deleteSchema(collection);
-        await renderSchema(el, collection);
-      } catch (err) {
-        el.querySelector("#schema-error").innerHTML = alertHtml(err.message);
-      }
+          <div id="json-schema-fields" ${collectionType === "binary" ? 'style="display:none"' : ""}>
+            <div class="field" style="margin-bottom:1.25rem">
+              <label class="field-label">Display name rule <span class="field-hint">e.g. <code>{title}</code> or <code>{first} {last}</code></span></label>
+              <input class="input" id="display-name-input" value="${escHtml(displayName)}" placeholder="{title}">
+            </div>
+            <div class="field">
+              <label class="field-label">JSON Schema ${!hasSchema ? `<span class="field-hint">(starting template — not saved yet)</span>` : ""}</label>
+              <textarea class="input mono" id="schema-editor" rows="16" style="width:100%">${escHtml(JSON.stringify(schema, null, 2))}</textarea>
+            </div>
+          </div>
+          <div id="binary-note" ${collectionType !== "binary" ? 'style="display:none"' : ""}>
+            <div class="alert alert-success" style="margin:0">Binary collections store files. No JSON schema needed.</div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+
+  el.querySelector("#create-default-schema-btn")?.addEventListener("click", async () => {
+    try {
+      await api.setSchema(collection, { collectionType: "json", schema: { type: "object", additionalProperties: true } });
+      const updated = await api.getSchema(collection).catch(() => null);
+      await renderSchema(el, collection, updated);
+    } catch (err) {
+      el.querySelector("#schema-error").innerHTML = alertHtml(err.message);
+    }
+  });
+
+  // Toggle JSON/binary fields on radio change
+  el.querySelectorAll("[name=collectionType]").forEach(r => {
+    r.addEventListener("change", () => {
+      const isBin = el.querySelector("[name=collectionType]:checked")?.value === "binary";
+      el.querySelector("#json-schema-fields").style.display = isBin ? "none" : "";
+      el.querySelector("#binary-note").style.display = isBin ? "" : "none";
     });
-  } catch (err) {
-    render(el, alertHtml(err.message));
-  }
+  });
+
+  el.querySelector("#save-schema-btn").addEventListener("click", async () => {
+    const errEl = el.querySelector("#schema-error");
+    errEl.innerHTML = "";
+    const colType = el.querySelector("[name=collectionType]:checked")?.value ?? "json";
+    const displayNameVal = el.querySelector("#display-name-input")?.value.trim() || null;
+
+    let jsonSchema = {};
+    if (colType !== "binary") {
+      try { jsonSchema = JSON.parse(el.querySelector("#schema-editor").value); }
+      catch { errEl.innerHTML = alertHtml("Invalid JSON Schema"); return; }
+    }
+
+    try {
+      await api.setSchema(collection, {
+        collectionType: colType,
+        displayName: displayNameVal,
+        schema: colType === "binary" ? undefined : jsonSchema,
+      });
+      errEl.innerHTML = `<div class="alert alert-success">Schema saved.</div>`;
+      // Reload to reflect updated state
+      const updated = await api.getSchema(collection).catch(() => null);
+      await renderSchema(el, collection, updated);
+    } catch (err) {
+      errEl.innerHTML = alertHtml(err.message);
+    }
+  });
+
+  el.querySelector("#delete-schema-btn")?.addEventListener("click", async () => {
+    if (!confirm("Remove schema for this collection?")) return;
+    try {
+      await api.deleteSchema(collection);
+      await renderSchema(el, collection, null);
+    } catch (err) {
+      el.querySelector("#schema-error").innerHTML = alertHtml(err.message);
+    }
+  });
 }
 
 // ── Access tab ────────────────────────────────────────────────────────────────
@@ -290,35 +407,32 @@ async function renderAccess(el, collection) {
     }
   }
 
-  function principalLabel(principal) {
-    if (principal.startsWith("member:")) {
-      const uid = principal.slice(7);
+  function pl(p) {
+    if (p.startsWith("member:")) {
+      const uid = p.slice(7);
       return uid;
     }
-    if (principal.startsWith("key:")) {
-      const kid = principal.slice(4);
+    if (p.startsWith("key:")) {
+      const kid = p.slice(4);
       return `key:${kid}`;
     }
-    return principal;
+    return p;
   }
 
   function renderAccessTab(direct, inherited, members, keys) {
-    const { importPrincipalLabel } = (() => {
-      function pl(p) {
-        if (p.startsWith("member:")) {
-          const uid = p.slice(7);
-          const m = members.find(m => m.userId === uid);
-          return m ? `${m.name} <${m.email}>` : p;
-        }
-        if (p.startsWith("key:")) {
-          const kid = p.slice(4);
-          const k = keys.find(k => k.id === kid);
-          return k ? `key: ${k.name}` : p;
-        }
-        return p;
+    function principalLabel(p) {
+      if (p.startsWith("member:")) {
+        const uid = p.slice(7);
+        const m = members.find(m => m.userId === uid);
+        return m ? `${m.name} <${m.email}>` : p;
       }
-      return { importPrincipalLabel: pl };
-    })();
+      if (p.startsWith("key:")) {
+        const kid = p.slice(4);
+        const k = keys.find(k => k.id === kid);
+        return k ? `key: ${k.name}` : p;
+      }
+      return p;
+    }
 
     const accessOpts = ["none", "read", "write", "admin"].map(a =>
       `<option value="${a}">${a}</option>`).join("");
@@ -355,17 +469,17 @@ async function renderAccess(el, collection) {
         </div>
 
         <div class="card">
-          <div class="card-header">Direct rules <span class="count-badge">${direct.length}</span></div>
+          <div class="card-header">Rules for this collection <span class="count-badge">${direct.length}</span></div>
           ${direct.length === 0
-            ? `<div class="card-body"><div class="empty-state">No direct rules for this collection.</div></div>`
+            ? `<div class="card-body"><div class="empty-state">No direct rules. <a class="link" href="#/settings/permissions">Manage all permissions →</a></div></div>`
             : `<table class="table">
                 <thead><tr><th>Principal</th><th>Access</th><th>Notes</th><th></th></tr></thead>
                 <tbody>
                   ${direct.map(p => `
                     <tr>
-                      <td>${escHtml(importPrincipalLabel(p.principal))}</td>
+                      <td>${escHtml(principalLabel(p.principal))}</td>
                       <td>${accessBadge(p.access)}</td>
-                      <td class="muted">${notesCell(p)}</td>
+                      <td class="muted">${escHtml(notesCell(p))}</td>
                       <td><button class="btn btn-sm btn-danger" data-delete="${p.id}">Revoke</button></td>
                     </tr>`).join("")}
                 </tbody>
@@ -374,19 +488,22 @@ async function renderAccess(el, collection) {
 
         ${inherited.length > 0 ? `
           <div class="card" style="margin-top:1rem">
-            <div class="card-header">Inherited rules</div>
+            <div class="card-header">Also applies (inherited rules)</div>
             <table class="table">
               <thead><tr><th>Principal</th><th>Resource</th><th>Access</th><th>Notes</th></tr></thead>
               <tbody>
                 ${inherited.map(p => `
                   <tr class="muted-row">
-                    <td>${escHtml(importPrincipalLabel(p.principal))}</td>
+                    <td>${escHtml(principalLabel(p.principal))}</td>
                     <td><span class="badge badge-gray">${escHtml(p.resource)}</span></td>
                     <td>${accessBadge(p.access)}</td>
-                    <td class="muted">${notesCell(p)}</td>
+                    <td class="muted">${escHtml(notesCell(p))}</td>
                   </tr>`).join("")}
               </tbody>
             </table>
+            <div class="card-body" style="padding-top:0">
+              <a class="link" style="font-size:12px" href="#/settings/permissions">Manage all permissions →</a>
+            </div>
           </div>` : ""}
       </div>`);
 
@@ -424,10 +541,10 @@ async function renderAccess(el, collection) {
   function notesCell(p) {
     const parts = [];
     if (p.labelFilter) parts.push(`label: ${p.labelFilter}`);
-    if (p.filterExpr) parts.push(`${p.filterLang}: ${p.filterExpr.slice(0, 30)}…`);
+    if (p.filterExpr) parts.push(`${p.filterLang}: ${p.filterExpr.slice(0, 30)}`);
     if (p.auditReads) parts.push("audit reads");
     if (p.auditWrites) parts.push("audit writes");
-    return escHtml(parts.join(" · ") || "—");
+    return parts.join(" · ") || "—";
   }
 
   await load();

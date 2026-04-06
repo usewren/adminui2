@@ -99,6 +99,23 @@ export function notesText(p) {
   ].filter(Boolean).join(" · ") || "—";
 }
 
+/** Apply a display name rule like "{title}" or "{first} {last}" to document data */
+export function applyDisplayRule(rule, data) {
+  if (!rule || !data || typeof data !== "object") return null;
+  return rule.replace(/\{(\w+)\}/g, (_, key) => {
+    const val = data[key];
+    return val !== undefined && val !== null ? String(val) : `{${key}}`;
+  });
+}
+
+/** Format bytes to human-readable string */
+export function fmtBytes(n) {
+  if (n == null) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function principalLabel(principal, members = [], keys = []) {
   if (principal.startsWith("member:")) {
     const uid = principal.slice(7);

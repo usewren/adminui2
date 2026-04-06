@@ -8,6 +8,7 @@ import { mountTrees, mountTree } from "./pages/trees.js";
 import { mountApiKeys } from "./pages/apikeys.js";
 import { mountCollaborators } from "./pages/collaborators.js";
 import { mountPermissions } from "./pages/permissions.js";
+import { mountAccept } from "./pages/accept.js";
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -24,6 +25,14 @@ async function boot() {
   currentUser = session.user;
   orgInfo = await api.getOrg().catch(() => null);
   await renderApp();
+}
+
+// Save accept token from hash so login can redirect back
+function getPendingAcceptToken() {
+  const raw = location.hash.replace(/^#\/?/, "");
+  const parts = raw.split("?")[0].split("/");
+  if (parts[0] === "accept" && parts[1]) return decodeURIComponent(parts[1]);
+  return null;
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -55,11 +64,16 @@ function renderLogin() {
     const errEl = document.getElementById("login-error");
     errEl.innerHTML = "";
     try {
+      const pendingToken = getPendingAcceptToken();
       await api.signIn(fd.get("email"), fd.get("password"));
       const session = await api.getSession();
       currentUser = session.user;
       orgInfo = await api.getOrg().catch(() => null);
       await renderApp();
+      // If user came from an invite link, navigate to accept page
+      if (pendingToken) {
+        location.hash = `#/accept/${encodeURIComponent(pendingToken)}`;
+      }
     } catch (err) {
       errEl.innerHTML = alertHtml(err.message);
     }
@@ -94,7 +108,10 @@ async function renderApp() {
       </nav>
       <div class="sidebar-footer">
         <span class="sidebar-user">${escHtml(currentUser.email ?? currentUser.name ?? "")}</span>
-        <button class="btn btn-sm" id="sign-out-btn">Sign out</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <a class="btn btn-sm" id="old-admin-link" href="/oldadmin${location.hash}" target="_blank" title="Same page in old admin">Old UI ↗</a>
+          <button class="btn btn-sm" id="sign-out-btn">Sign out</button>
+        </div>
       </div>
     </aside>
     <main class="main" id="main">
@@ -125,7 +142,11 @@ async function renderApp() {
 
   await refreshCollections();
 
-  window.addEventListener("hashchange", route);
+  window.addEventListener("hashchange", () => {
+    route();
+    const link = document.getElementById("old-admin-link");
+    if (link) link.href = `/oldadmin${location.hash}`;
+  });
   route();
 }
 
@@ -166,7 +187,10 @@ function route() {
   // Update active sidebar link
   document.querySelectorAll(".sidebar-link").forEach(a => a.classList.remove("active"));
 
-  if (p0 === "collections" && p1 && p2) {
+  if (p0 === "accept" && p1) {
+    // Invite acceptance: #/accept/:token
+    mountAccept(main, decodeURIComponent(p1));
+  } else if (p0 === "collections" && p1 && p2) {
     // Document view: #/collections/:col/:id
     highlightSidebar(`[data-col="${CSS.escape(decodeURIComponent(p1))}"]`);
     mountDocument(main, decodeURIComponent(p1), decodeURIComponent(p2), params);
