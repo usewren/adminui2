@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert, escHtml, fmtDate, accessBadge } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate } from "../ui.js";
 
 export async function mountDocument(el, collection, id, params) {
   const tab = params.tab || "view";
@@ -39,7 +39,7 @@ export async function mountDocument(el, collection, id, params) {
       await api.deleteDocument(collection, id);
       location.hash = `#/collections/${encodeURIComponent(collection)}`;
     } catch (err) {
-      alert(err.message);
+      window.alert(err.message);
     }
   });
 
@@ -75,17 +75,17 @@ async function renderView(el, collection, id) {
       errEl.innerHTML = "";
       let body;
       try { body = JSON.parse(el.querySelector("#doc-editor").value); }
-      catch { errEl.innerHTML = alert("Invalid JSON"); return; }
+      catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
       try {
         await api.updateDocument(collection, id, body);
         errEl.innerHTML = `<div class="alert alert-success">Saved.</div>`;
         await renderView(el, collection, id);
       } catch (err) {
-        errEl.innerHTML = alert(err.message);
+        errEl.innerHTML = alertHtml(err.message);
       }
     });
   } catch (err) {
-    render(el, alert(err.message));
+    render(el, alertHtml(err.message));
   }
 }
 
@@ -165,7 +165,7 @@ async function renderHistory(el, collection, id) {
           const diff = await api.diffVersions(collection, id, v1, v2);
           out.innerHTML = `<pre class="diff-output">${escHtml(JSON.stringify(diff, null, 2))}</pre>`;
         } catch (err) {
-          out.innerHTML = alert(err.message);
+          out.innerHTML = alertHtml(err.message);
         }
       });
 
@@ -181,7 +181,7 @@ async function renderHistory(el, collection, id) {
               const data = verDoc.data ?? verDoc.document?.data ?? verDoc;
               preview.innerHTML = `<pre class="code-block">${escHtml(JSON.stringify(data, null, 2))}</pre>`;
             } catch (err) {
-              preview.innerHTML = alert(err.message);
+              preview.innerHTML = alertHtml(err.message);
             }
           } else {
             preview.style.display = "none";
@@ -198,7 +198,7 @@ async function renderHistory(el, collection, id) {
             location.hash = `#/collections/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?tab=history`;
             renderHistory(el, collection, id);
           } catch (err) {
-            alert(err.message);
+            window.alert(err.message);
           }
         });
       });
@@ -206,7 +206,7 @@ async function renderHistory(el, collection, id) {
 
     renderVersionList();
   } catch (err) {
-    render(el, alert(err.message));
+    render(el, alertHtml(err.message));
   }
 }
 
@@ -256,11 +256,11 @@ async function renderLabels(el, collection, id) {
         await api.setLabel(collection, id, label, version);
         errEl.innerHTML = `<div class="alert alert-success">Label "${label}" set.</div>`;
       } catch (err) {
-        errEl.innerHTML = alert(err.message);
+        errEl.innerHTML = alertHtml(err.message);
       }
     });
   } catch (err) {
-    render(el, alert(err.message));
+    render(el, alertHtml(err.message));
   }
 }
 
@@ -287,6 +287,6 @@ async function renderPaths(el, collection, id) {
             </table>`}
       </div>`);
   } catch (err) {
-    render(el, alert(err.message));
+    render(el, alertHtml(err.message));
   }
 }

@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert, escHtml, fmtDate, accessBadge, bindConfirm, notesText, principalLabel } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, accessBadge, bindConfirm, notesText, principalLabel } from "../ui.js";
 
 export async function mountPermissions(el) {
   await load();
@@ -14,7 +14,7 @@ export async function mountPermissions(el) {
       ]);
       renderPage(perms, members, keys);
     } catch (err) {
-      render(el, alert(err.message));
+      render(el, alertHtml(err.message));
     }
   }
 
@@ -185,7 +185,7 @@ export async function mountPermissions(el) {
         : fd.get("resource");
 
       if (!principal || !resource) {
-        errEl.innerHTML = alert("Principal and resource are required.");
+        errEl.innerHTML = alertHtml("Principal and resource are required.");
         return;
       }
 
@@ -204,7 +204,7 @@ export async function mountPermissions(el) {
         await api.createPermission(body);
         await load();
       } catch (err) {
-        errEl.innerHTML = alert(err.message);
+        errEl.innerHTML = alertHtml(err.message);
       }
     });
 
@@ -214,7 +214,7 @@ export async function mountPermissions(el) {
         await api.deletePermission(btn.dataset.delete);
         await load();
       } catch (err) {
-        alert(err.message);
+        window.alert(err.message);
       }
     });
 
@@ -284,7 +284,7 @@ export async function mountPermissions(el) {
             });
             await load();
           } catch (err) {
-            errEl.innerHTML = alert(err.message);
+            errEl.innerHTML = alertHtml(err.message);
           }
         });
       });

@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert, escHtml, fmtDate, statusBadge } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate } from "../ui.js";
 
 // ── Collections list ──────────────────────────────────────────────────────────
 export async function mountCollections(el, collections, { refreshCollections }) {
@@ -35,13 +35,17 @@ export async function mountCollections(el, collections, { refreshCollections }) 
         ? `<div class="empty-state">No collections yet. Create one to get started.</div>`
         : `<div class="card">
             <table class="table">
-              <thead><tr><th>Name</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Name</th><th>Documents</th><th>Actions</th></tr></thead>
               <tbody>
-                ${cols.map(c => `
+                ${cols.map(c => {
+                  const name = c.name ?? c;
+                  return `
                   <tr>
-                    <td><a class="link" href="#/collections/${encodeURIComponent(c)}">${escHtml(c)}</a></td>
-                    <td><a class="btn btn-sm" href="#/collections/${encodeURIComponent(c)}">Open</a></td>
-                  </tr>`).join("")}
+                    <td><a class="link" href="#/collections/${encodeURIComponent(name)}">${escHtml(name)}</a></td>
+                    <td class="muted">${c.count != null ? c.count : ""}</td>
+                    <td><a class="btn btn-sm" href="#/collections/${encodeURIComponent(name)}">Open</a></td>
+                  </tr>`;
+                }).join("")}
               </tbody>
             </table>
           </div>`
@@ -65,7 +69,7 @@ export async function mountCollections(el, collections, { refreshCollections }) 
       await refreshCollections();
       location.hash = `#/collections/${encodeURIComponent(name)}`;
     } catch (err) {
-      errEl.innerHTML = alert(err.message);
+      errEl.innerHTML = alertHtml(err.message);
     }
   });
 }
@@ -122,7 +126,7 @@ async function renderDocuments(el, collection) {
       offset = off;
       renderList(items, total, off);
     } catch (err) {
-      render(el, alert(err.message));
+      render(el, alertHtml(err.message));
     }
   }
 
@@ -189,7 +193,7 @@ async function renderDocuments(el, collection) {
       errEl.innerHTML = "";
       let data;
       try { data = JSON.parse(fd.get("data") || "{}"); }
-      catch { errEl.innerHTML = alert("Invalid JSON"); return; }
+      catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
       try {
         const docId = fd.get("id")?.trim();
         if (docId) data = { ...data, id: docId };
@@ -197,7 +201,7 @@ async function renderDocuments(el, collection) {
         const id = res.id ?? res.document?.id;
         location.hash = `#/collections/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`;
       } catch (err) {
-        errEl.innerHTML = alert(err.message);
+        errEl.innerHTML = alertHtml(err.message);
       }
     });
 
@@ -233,7 +237,7 @@ async function renderSchema(el, collection) {
           </div>
           <div class="card-body">
             <div id="schema-error"></div>
-            <textarea class="input mono" id="schema-editor" rows="20" style="width:100%">${escHtml(JSON.stringify(schema ?? {}, null, 2))}</textarea>
+            <textarea class="input mono" id="schema-editor" rows="20" style="width:100%">${escHtml(JSON.stringify(schema?.schema ?? schema ?? {}, null, 2))}</textarea>
           </div>
         </div>
       </div>`);
@@ -243,12 +247,12 @@ async function renderSchema(el, collection) {
       errEl.innerHTML = "";
       let body;
       try { body = JSON.parse(el.querySelector("#schema-editor").value); }
-      catch { errEl.innerHTML = alert("Invalid JSON"); return; }
+      catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
       try {
         await api.setSchema(collection, body);
         errEl.innerHTML = `<div class="alert alert-success">Schema saved.</div>`;
       } catch (err) {
-        errEl.innerHTML = alert(err.message);
+        errEl.innerHTML = alertHtml(err.message);
       }
     });
 
@@ -258,11 +262,11 @@ async function renderSchema(el, collection) {
         await api.deleteSchema(collection);
         await renderSchema(el, collection);
       } catch (err) {
-        el.querySelector("#schema-error").innerHTML = alert(err.message);
+        el.querySelector("#schema-error").innerHTML = alertHtml(err.message);
       }
     });
   } catch (err) {
-    render(el, alert(err.message));
+    render(el, alertHtml(err.message));
   }
 }
 
@@ -282,7 +286,7 @@ async function renderAccess(el, collection) {
       const inherited = perms.filter(p => p.resource === "collection:*" || p.resource === "*");
       renderAccessTab(direct, inherited, members, keys);
     } catch (err) {
-      render(el, alert(err.message));
+      render(el, alertHtml(err.message));
     }
   }
 
@@ -395,7 +399,7 @@ async function renderAccess(el, collection) {
         await api.createPermission({ principal: fd.get("principal"), resource, access: fd.get("access") });
         await load();
       } catch (err) {
-        errEl.innerHTML = alert(err.message);
+        errEl.innerHTML = alertHtml(err.message);
       }
     });
 
@@ -406,7 +410,7 @@ async function renderAccess(el, collection) {
           await api.deletePermission(btn.dataset.delete);
           await load();
         } catch (err) {
-          alert(err.message);
+          window.alert(err.message);
         }
       });
     });

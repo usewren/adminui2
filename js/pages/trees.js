@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert, escHtml, fmtDate } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate } from "../ui.js";
 
 // ── Trees list ────────────────────────────────────────────────────────────────
 export async function mountTrees(el) {
@@ -27,7 +27,7 @@ export async function mountTrees(el) {
             </div>`}
       </div>`);
   } catch (err) {
-    render(el, alert(err.message));
+    render(el, alertHtml(err.message));
   }
 }
 
@@ -75,7 +75,7 @@ async function renderTree(el, name, label) {
     treeEl.innerHTML = renderNodes(nodes, "", name);
     bindTreeActions(el, name, label);
   } catch (err) {
-    render(el, alert(err.message));
+    render(el, alertHtml(err.message));
   }
 }
 
@@ -112,7 +112,7 @@ function bindTreeActions(el, treeName, label) {
         await api.setTreePath(treeName, path, docId.trim());
         await renderTree(el, treeName, label);
       } catch (err) {
-        alert(err.message);
+        window.alert(err.message);
       }
     });
   });
@@ -125,7 +125,7 @@ function bindTreeActions(el, treeName, label) {
         await api.deleteTreePath(treeName, path);
         await renderTree(el, treeName, label);
       } catch (err) {
-        alert(err.message);
+        window.alert(err.message);
       }
     });
   });

@@ -1,5 +1,5 @@
 import * as api from "./api.js";
-import { render, spinner, alert, escHtml } from "./ui.js";
+import { render, spinner, alert as alertHtml, escHtml } from "./ui.js";
 
 // ── Page modules (lazy-ish, just import them all up front) ────────────────────
 import { mountCollections, mountCollection } from "./pages/collections.js";
@@ -58,7 +58,7 @@ function renderLogin() {
       currentUser = session.user;
       await renderApp();
     } catch (err) {
-      errEl.innerHTML = alert(err.message);
+      errEl.innerHTML = alertHtml(err.message);
     }
   });
 }
@@ -112,9 +112,10 @@ async function refreshCollections() {
     el.innerHTML = `<span class="sidebar-empty">No collections</span>`;
     return;
   }
-  el.innerHTML = collections.map(c =>
-    `<a class="sidebar-link sidebar-link--indent" href="#/collections/${encodeURIComponent(c)}" data-col="${escHtml(c)}">${escHtml(c)}</a>`
-  ).join("");
+  el.innerHTML = collections.map(c => {
+    const name = c.name ?? c;
+    return `<a class="sidebar-link sidebar-link--indent" href="#/collections/${encodeURIComponent(name)}" data-col="${escHtml(name)}">${escHtml(name)}</a>`;
+  }).join("");
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────

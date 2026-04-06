@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert, escHtml, fmtDate, bindConfirm, accessBadge } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, bindConfirm, accessBadge } from "../ui.js";
 
 export async function mountCollaborators(el, currentUser) {
   let tab = "members";
@@ -14,7 +14,7 @@ export async function mountCollaborators(el, currentUser) {
       ]);
       renderAll(members, invites, received);
     } catch (err) {
-      render(el, alert(err.message));
+      render(el, alertHtml(err.message));
     }
   }
 
@@ -86,7 +86,7 @@ export async function mountCollaborators(el, currentUser) {
           await api.removeMember(btn.dataset.remove);
           await load();
         } catch (err) {
-          alert(err.message);
+          window.alert(err.message);
         }
       });
     }
@@ -146,7 +146,7 @@ export async function mountCollaborators(el, currentUser) {
           e.target.reset();
           await load();
         } catch (err) {
-          errEl.innerHTML = alert(err.message);
+          errEl.innerHTML = alertHtml(err.message);
         }
       });
 
@@ -155,7 +155,7 @@ export async function mountCollaborators(el, currentUser) {
           await api.revokeInvite(btn.dataset.revokeInvite);
           await load();
         } catch (err) {
-          alert(err.message);
+          window.alert(err.message);
         }
       });
     }
@@ -188,7 +188,7 @@ export async function mountCollaborators(el, currentUser) {
             await api.acceptInviteById(btn.dataset.accept);
             await load();
           } catch (err) {
-            alert(err.message);
+            alertHtml(err.message);
           }
         });
       });

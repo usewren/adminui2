@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert, escHtml, fmtDate, bindConfirm } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, bindConfirm } from "../ui.js";
 
 export async function mountApiKeys(el) {
   await load();
@@ -76,7 +76,7 @@ export async function mountApiKeys(el) {
           // Reload list after a second
           setTimeout(() => load(), 2000);
         } catch (err) {
-          errEl.innerHTML = alert(err.message);
+          errEl.innerHTML = alertHtml(err.message);
         }
       });
 
@@ -86,11 +86,11 @@ export async function mountApiKeys(el) {
           await api.revokeKey(id);
           await load();
         } catch (err) {
-          alert(err.message);
+          window.alert(err.message);
         }
       });
     } catch (err) {
-      render(el, alert(err.message));
+      render(el, alertHtml(err.message));
     }
   }
 }
