@@ -1,7 +1,8 @@
 import * as api from "../api.js";
-import { render, spinner, alert as alertHtml, escHtml, fmtDate, bindConfirm } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, bindConfirm, orgContextBadge } from "../ui.js";
 
-export async function mountApiKeys(el) {
+export async function mountApiKeys(el, orgInfo) {
+  const orgBadge = orgContextBadge(orgInfo);
   await load();
 
   async function load() {
@@ -11,7 +12,10 @@ export async function mountApiKeys(el) {
       render(el, `
         <div class="page">
           <div class="page-header">
-            <h1 class="page-title">API Keys</h1>
+            <div>
+              <h1 class="page-title">API Keys</h1>
+              ${orgBadge}
+            </div>
             <button class="btn btn-primary" id="new-key-btn">Create key</button>
           </div>
           <div id="new-key-form" class="card" style="display:none;margin-bottom:1rem">

@@ -207,13 +207,13 @@ function route() {
     mountTrees(main);
   } else if (p0 === "settings" && p1 === "apikeys") {
     highlightSidebar(`[data-route="apikeys"]`);
-    mountApiKeys(main);
+    mountApiKeys(main, orgInfo);
   } else if (p0 === "settings" && p1 === "collaborators") {
     highlightSidebar(`[data-route="collaborators"]`);
-    mountCollaborators(main, currentUser);
+    mountCollaborators(main, currentUser, orgInfo);
   } else if (p0 === "settings" && p1 === "permissions") {
     highlightSidebar(`[data-route="permissions"]`);
-    mountPermissions(main);
+    mountPermissions(main, orgInfo);
   } else {
     // Default: collections list
     highlightSidebar(`[data-route="collections"]`);

@@ -1,7 +1,7 @@
 import * as api from "../api.js";
-import { render, spinner, alert as alertHtml, escHtml, fmtDate, bindConfirm, accessBadge } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, bindConfirm, accessBadge, orgContextBadge } from "../ui.js";
 
-export async function mountCollaborators(el, currentUser) {
+export async function mountCollaborators(el, currentUser, orgInfo) {
   let tab = "members";
 
   async function load() {
@@ -31,7 +31,10 @@ export async function mountCollaborators(el, currentUser) {
     render(el, `
       <div class="page">
         <div class="page-header">
-          <h1 class="page-title">Collaborators</h1>
+          <div>
+            <h1 class="page-title">Collaborators</h1>
+            ${orgContextBadge(orgInfo)}
+          </div>
         </div>
         <div class="tabs" id="collab-tabs">
           <button class="tab${tab === "members" ? " active" : ""}" data-tab="members">

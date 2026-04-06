@@ -1,7 +1,7 @@
 import * as api from "../api.js";
-import { render, spinner, alert as alertHtml, escHtml, fmtDate, accessBadge, bindConfirm, notesText, principalLabel } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, accessBadge, bindConfirm, notesText, principalLabel, orgContextBadge } from "../ui.js";
 
-export async function mountPermissions(el) {
+export async function mountPermissions(el, orgInfo) {
   await load();
 
   async function load() {
@@ -14,7 +14,22 @@ export async function mountPermissions(el) {
       ]);
       renderPage(perms, members, keys);
     } catch (err) {
-      render(el, alertHtml(err.message));
+      if (err.status === 403) {
+        const orgName = orgInfo?.orgs?.find(o => o.id === orgInfo?.current)?.name ?? "this org";
+        render(el, `
+          <div class="page">
+            <div class="page-header">
+              <h1 class="page-title">Permissions</h1>
+            </div>
+            <div class="callout callout--warn" style="background:#fefce8;border-left:3px solid #eab308;padding:14px 16px;border-radius:6px;max-width:540px">
+              <strong>Owner-only feature.</strong>
+              Permission rules for <strong>${escHtml(orgName)}</strong> can only be managed by the org owner.
+              You have admin member access but cannot view or modify permission rules.
+            </div>
+          </div>`);
+      } else {
+        render(el, alertHtml(err.message));
+      }
     }
   }
 
@@ -42,7 +57,10 @@ export async function mountPermissions(el) {
     render(el, `
       <div class="page">
         <div class="page-header">
-          <h1 class="page-title">Permissions</h1>
+          <div>
+            <h1 class="page-title">Permissions</h1>
+            ${orgContextBadge(orgInfo)}
+          </div>
           <button class="btn btn-primary" id="new-perm-btn">Add rule</button>
         </div>
         <p class="muted" style="margin-bottom:1.5rem">

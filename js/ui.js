@@ -35,6 +35,18 @@ export function alert(msg, type = "error") {
   return msg ? `<div class="alert alert-${type}">${escHtml(msg)}</div>` : "";
 }
 
+/** Returns a small subtitle showing which org is currently active.
+ *  orgInfo = { current, orgs: [{id, name, own}] } from api.getOrg() */
+export function orgContextBadge(orgInfo) {
+  if (!orgInfo) return "";
+  const org = orgInfo.orgs?.find(o => o.id === orgInfo.current);
+  if (!org) return "";
+  return `<span class="muted" style="font-size:12px">
+    ${org.own ? "My workspace" : escHtml(org.name)}
+    ${!org.own ? `<span class="badge badge-gray" style="margin-left:4px">member</span>` : ""}
+  </span>`;
+}
+
 /** Render HTML into el, return el for chaining */
 export function render(el, html) {
   el.innerHTML = html;
