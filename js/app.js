@@ -12,6 +12,7 @@ import { mountPermissions } from "./pages/permissions.js";
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentUser = null;
 let collections = [];
+let orgInfo = null; // { current, orgs: [{id, name, own}] }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function boot() {
@@ -21,6 +22,7 @@ async function boot() {
     return;
   }
   currentUser = session.user;
+  orgInfo = await api.getOrg().catch(() => null);
   await renderApp();
 }
 
@@ -56,6 +58,7 @@ function renderLogin() {
       await api.signIn(fd.get("email"), fd.get("password"));
       const session = await api.getSession();
       currentUser = session.user;
+      orgInfo = await api.getOrg().catch(() => null);
       await renderApp();
     } catch (err) {
       errEl.innerHTML = alertHtml(err.message);
@@ -69,6 +72,16 @@ async function renderApp() {
   app.innerHTML = `
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">Wren</div>
+      ${orgInfo && orgInfo.orgs && orgInfo.orgs.length > 1 ? `
+      <div class="sidebar-org-switcher">
+        <select class="sidebar-org-select" id="org-switcher">
+          ${orgInfo.orgs.map(o => `
+            <option value="${escHtml(o.id)}" ${o.id === orgInfo.current ? "selected" : ""}>
+              ${escHtml(o.name)}${o.own ? " ★" : ""}
+            </option>`).join("")}
+        </select>
+      </div>` : orgInfo?.orgs?.length === 1 ? `
+      <div class="sidebar-org-name">${escHtml(orgInfo.orgs[0]?.name ?? "")}</div>` : ""}
       <nav class="sidebar-nav">
         <div class="sidebar-section-label">Data</div>
         <a class="sidebar-link" href="#/" data-route="collections">Collections</a>
@@ -92,6 +105,22 @@ async function renderApp() {
     await api.signOut();
     currentUser = null;
     renderLogin();
+  });
+
+  document.getElementById("org-switcher")?.addEventListener("change", async e => {
+    const orgId = e.target.value;
+    try {
+      await api.switchOrg(orgId);
+      orgInfo = await api.getOrg().catch(() => null);
+      collections = [];
+      // Re-render the whole app shell with updated org
+      window.removeEventListener("hashchange", route);
+      await renderApp();
+    } catch (err) {
+      window.alert("Failed to switch org: " + err.message);
+      // Reset select back to current
+      e.target.value = orgInfo?.current ?? orgId;
+    }
   });
 
   await refreshCollections();

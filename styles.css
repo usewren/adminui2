@@ -546,6 +546,25 @@ pre {
 .sidebar-link--indent { padding-left: 20px; font-size: 12px; color: var(--text-muted); }
 .sidebar-link--indent.active { color: #fff; }
 .sidebar-empty { font-size: 12px; color: var(--text-muted); padding: 4px 20px; }
+.sidebar-org-switcher { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.sidebar-org-select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  color: var(--text);
+  cursor: pointer;
+}
+.sidebar-org-select:focus { outline: none; border-color: var(--primary); }
+.sidebar-org-name {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
 .sidebar-footer {
   padding: 12px 16px;
   border-top: 1px solid var(--border);

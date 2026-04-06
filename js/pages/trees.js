@@ -91,7 +91,7 @@ function renderNodes(nodes, prefix, treeName) {
       <div class="tree-node">
         <div class="tree-node-row">
           <span class="tree-node-path mono">${escHtml(path)}</span>
-          ${docId ? `<a class="link muted" href="#/collections/.../${encodeURIComponent(docId)}">${escHtml(docId)}</a>` : ""}
+          ${docId ? `<span class="muted mono" style="font-size:11px">${escHtml(docId)}</span>` : ""}
           <div class="row-actions tree-node-actions">
             <button class="btn btn-sm" data-set-path="${escHtml(path)}">Set</button>
             <button class="btn btn-sm btn-danger" data-del-path="${escHtml(path)}">Remove</button>
