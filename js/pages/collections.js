@@ -78,10 +78,11 @@ export async function mountCollection(el, collection, params, { refreshCollectio
   const tab = params.tab || "documents";
   render(el, spinner());
 
-  // Load schema once — needed by documents tab (type, displayName) and schema tab
+  // Load schema once — needed by documents tab (type, displayName, listColumns) and schema tab
   const schemaData = await api.getSchema(collection).catch(() => null);
   const collectionType = schemaData?.collectionType ?? "json";
   const displayNameRule = schemaData?.displayName ?? null;
+  const listColumns = schemaData?.listColumns ?? null;
 
   render(el, `
     <div class="page">
@@ -108,7 +109,7 @@ export async function mountCollection(el, collection, params, { refreshCollectio
   });
 
   const content = el.querySelector("#tab-content");
-  if (tab === "documents") await renderDocuments(content, collection, collectionType, displayNameRule);
+  if (tab === "documents") await renderDocuments(content, collection, collectionType, displayNameRule, listColumns);
   else if (tab === "schema") await renderSchema(content, collection, schemaData);
   else if (tab === "access") await renderAccess(content, collection);
 }
@@ -116,7 +117,7 @@ export async function mountCollection(el, collection, params, { refreshCollectio
 // ── Documents tab ─────────────────────────────────────────────────────────────
 const PAGE_SIZE = 20;
 
-async function renderDocuments(el, collection, collectionType, displayNameRule) {
+async function renderDocuments(el, collection, collectionType, displayNameRule, listColumns) {
   const isBinary = collectionType === "binary";
 
   async function load(off) {
@@ -185,7 +186,7 @@ async function renderDocuments(el, collection, collectionType, displayNameRule) 
                 <thead><tr>
                   ${isBinary
                     ? `<th>Filename</th><th>Type</th><th>Size</th>`
-                    : `<th>ID / Preview</th><th>Labels</th>`}
+                    : `<th>ID / Preview</th>${listColumns ? listColumns.map(c => `<th>${escHtml(c)}</th>`).join("") : "<th>Labels</th>"}`}
                   <th>Version</th><th>Updated</th>
                 </tr></thead>
                 <tbody>
@@ -205,14 +206,18 @@ async function renderDocuments(el, collection, collectionType, displayNameRule) 
                         ? applyDisplayRule(displayNameRule, d.data)
                         : null;
                       const labels = d.labels ?? [];
+                      const extraCols = listColumns
+                        ? listColumns.map(c => {
+                            const val = d.data?.[c];
+                            return `<td class="muted">${escHtml(val == null ? "" : String(val))}</td>`;
+                          }).join("")
+                        : `<td>${labels.map(l => `<span class="badge badge-blue">${escHtml(l)}</span>`).join(" ")}</td>`;
                       return `<tr class="clickable-row" data-href="${href}">
                         <td>
                           <a class="link" href="${href}">${escHtml(preview ?? d.id)}</a>
                           ${preview ? `<span class="doc-id-sub">${escHtml(d.id)}</span>` : ""}
                         </td>
-                        <td>
-                          ${labels.map(l => `<span class="badge badge-blue">${escHtml(l)}</span>`).join(" ")}
-                        </td>
+                        ${extraCols}
                         <td class="muted">${escHtml(String(d.version ?? ""))}</td>
                         <td class="muted">${fmtDate(d.updatedAt ?? d.updated_at)}</td>
                       </tr>`;
@@ -280,6 +285,7 @@ async function renderDocuments(el, collection, collectionType, displayNameRule) 
 async function renderSchema(el, collection, schemaData) {
   const collectionType = schemaData?.collectionType ?? "json";
   const displayName = schemaData?.displayName ?? "";
+  const listColumnsVal = (schemaData?.listColumns ?? []).join(", ");
   const schema = schemaData?.schema ?? {};
   const hasSchema = schemaData != null;
 
@@ -318,6 +324,10 @@ async function renderSchema(el, collection, schemaData) {
               <label class="field-label">Display name rule <span class="field-hint">e.g. <code>{title}</code> or <code>{first} {last}</code></span></label>
               <input class="input" id="display-name-input" value="${escHtml(displayName)}" placeholder="{title}">
             </div>
+            <div class="field" style="margin-bottom:1.25rem">
+              <label class="field-label">List columns <span class="field-hint">comma-separated field names to show in the document list, e.g. <code>date, venue, status</code></span></label>
+              <input class="input" id="list-columns-input" value="${escHtml(listColumnsVal)}" placeholder="date, venue, status">
+            </div>
             <div class="field">
               <label class="field-label">JSON Schema ${!hasSchema ? `<span class="field-hint">(starting template — not saved yet)</span>` : ""}</label>
               <textarea class="input mono" id="schema-editor" rows="16" style="width:100%">${escHtml(JSON.stringify(schema, null, 2))}</textarea>
@@ -354,6 +364,8 @@ async function renderSchema(el, collection, schemaData) {
     errEl.innerHTML = "";
     const colType = el.querySelector("[name=collectionType]:checked")?.value ?? "json";
     const displayNameVal = el.querySelector("#display-name-input")?.value.trim() || null;
+    const listColumnsRaw = el.querySelector("#list-columns-input")?.value ?? "";
+    const listColumnsVal = listColumnsRaw.split(",").map(s => s.trim()).filter(Boolean);
 
     let jsonSchema = {};
     if (colType !== "binary") {
@@ -365,6 +377,7 @@ async function renderSchema(el, collection, schemaData) {
       await api.setSchema(collection, {
         collectionType: colType,
         displayName: displayNameVal,
+        listColumns: listColumnsVal.length > 0 ? listColumnsVal : null,
         schema: colType === "binary" ? undefined : jsonSchema,
       });
       errEl.innerHTML = `<div class="alert alert-success">Schema saved.</div>`;
