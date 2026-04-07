@@ -22,9 +22,9 @@ export async function mountPermissions(el, orgInfo) {
               <h1 class="page-title">Permissions</h1>
             </div>
             <div class="callout callout--warn" style="background:#fefce8;border-left:3px solid #eab308;padding:14px 16px;border-radius:6px;max-width:540px">
-              <strong>Owner-only feature.</strong>
-              Permission rules for <strong>${escHtml(orgName)}</strong> can only be managed by the org owner.
-              You have admin member access but cannot view or modify permission rules.
+              <strong>Access restricted.</strong>
+              Permission rules for <strong>${escHtml(orgName)}</strong> can only be managed by the org owner or admin members.
+              Your current membership level does not include this access.
             </div>
           </div>`);
       } else {
