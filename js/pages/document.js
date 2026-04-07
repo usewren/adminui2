@@ -109,6 +109,19 @@ async function renderAsset(el, collection, id) {
             </form>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="row-actions">
+              <span>Metadata</span>
+              <button class="btn btn-sm btn-primary" id="meta-save-btn">Save</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="meta-error"></div>
+            <textarea class="input mono" id="meta-editor" rows="10" style="width:100%">${escHtml(JSON.stringify(data, null, 2))}</textarea>
+          </div>
+        </div>
       </div>`);
 
     el.querySelector("#replace-form").addEventListener("submit", async e => {
@@ -121,6 +134,20 @@ async function renderAsset(el, collection, id) {
         await api.updateAsset(collection, id, file);
         errEl.innerHTML = `<div class="alert alert-success">File replaced successfully.</div>`;
         await renderAsset(el, collection, id);
+      } catch (err) {
+        errEl.innerHTML = alertHtml(err.message);
+      }
+    });
+
+    el.querySelector("#meta-save-btn").addEventListener("click", async () => {
+      const errEl = el.querySelector("#meta-error");
+      errEl.innerHTML = "";
+      let body;
+      try { body = JSON.parse(el.querySelector("#meta-editor").value); }
+      catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
+      try {
+        await api.updateDocument(collection, id, body);
+        errEl.innerHTML = `<div class="alert alert-success">Saved.</div>`;
       } catch (err) {
         errEl.innerHTML = alertHtml(err.message);
       }
