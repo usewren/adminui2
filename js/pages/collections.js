@@ -285,7 +285,6 @@ async function renderDocuments(el, collection, collectionType, displayNameRule, 
 async function renderSchema(el, collection, schemaData) {
   const collectionType = schemaData?.collectionType ?? "json";
   const displayName = schemaData?.displayName ?? "";
-  const listColumnsVal = (schemaData?.listColumns ?? []).join(", ");
   const schema = schemaData?.schema ?? {};
   const hasSchema = schemaData != null;
 
@@ -325,8 +324,8 @@ async function renderSchema(el, collection, schemaData) {
               <input class="input" id="display-name-input" value="${escHtml(displayName)}" placeholder="{title}">
             </div>
             <div class="field" style="margin-bottom:1.25rem">
-              <label class="field-label">List columns <span class="field-hint">comma-separated field names to show in the document list, e.g. <code>date, venue, status</code></span></label>
-              <input class="input" id="list-columns-input" value="${escHtml(listColumnsVal)}" placeholder="date, venue, status">
+              <label class="field-label">List columns <span class="field-hint">fields shown as columns in the document list — drag to reorder</span></label>
+              <div id="list-columns-widget"></div>
             </div>
             <div class="field">
               <label class="field-label">JSON Schema ${!hasSchema ? `<span class="field-hint">(starting template — not saved yet)</span>` : ""}</label>
@@ -339,6 +338,73 @@ async function renderSchema(el, collection, schemaData) {
         </div>
       </div>
     </div>`);
+
+  // ── List columns widget ────────────────────────────────────────────────────
+  let columns = [...(schemaData?.listColumns ?? [])];
+  let dragIdx = null;
+
+  function renderColWidget() {
+    const w = el.querySelector("#list-columns-widget");
+    if (!w) return;
+    w.innerHTML = `
+      <div id="col-list" style="margin-bottom:6px">
+        ${columns.length === 0
+          ? `<div class="muted" style="padding:6px 0;font-size:13px">No columns configured — all documents show ID and Labels.</div>`
+          : columns.map((col, i) => `
+            <div class="col-row" draggable="true" data-idx="${i}"
+              style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-alt,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:4px;margin-bottom:4px;cursor:default">
+              <span class="drag-handle" data-idx="${i}"
+                style="cursor:grab;color:#94a3b8;font-size:15px;line-height:1;user-select:none" title="Drag to reorder">⠿</span>
+              <span style="flex:1;font-family:monospace;font-size:13px">${escHtml(col)}</span>
+              <button class="btn btn-sm" data-remove="${i}" style="padding:1px 8px;line-height:1.5">×</button>
+            </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:8px">
+        <input class="input" id="col-add-input" placeholder="field name" style="flex:1">
+        <button class="btn btn-sm btn-primary" id="col-add-btn">Add</button>
+      </div>`;
+
+    // Delete
+    w.querySelectorAll("[data-remove]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        columns.splice(parseInt(btn.dataset.remove), 1);
+        renderColWidget();
+      });
+    });
+
+    // Add
+    const addInput = w.querySelector("#col-add-input");
+    w.querySelector("#col-add-btn").addEventListener("click", () => {
+      const val = addInput.value.trim();
+      if (val && !columns.includes(val)) { columns.push(val); renderColWidget(); }
+      else addInput.focus();
+    });
+    addInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); w.querySelector("#col-add-btn").click(); }
+    });
+
+    // Drag-and-drop reorder
+    w.querySelectorAll(".col-row").forEach(row => {
+      row.addEventListener("dragstart", e => {
+        dragIdx = parseInt(row.dataset.idx);
+        e.dataTransfer.effectAllowed = "move";
+        row.style.opacity = "0.5";
+      });
+      row.addEventListener("dragend", () => { row.style.opacity = ""; });
+      row.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; });
+      row.addEventListener("drop", e => {
+        e.preventDefault();
+        const dropIdx = parseInt(row.dataset.idx);
+        if (dragIdx === null || dragIdx === dropIdx) return;
+        const [moved] = columns.splice(dragIdx, 1);
+        columns.splice(dropIdx, 0, moved);
+        dragIdx = null;
+        renderColWidget();
+      });
+    });
+  }
+
+  renderColWidget();
 
   el.querySelector("#create-default-schema-btn")?.addEventListener("click", async () => {
     try {
@@ -364,8 +430,7 @@ async function renderSchema(el, collection, schemaData) {
     errEl.innerHTML = "";
     const colType = el.querySelector("[name=collectionType]:checked")?.value ?? "json";
     const displayNameVal = el.querySelector("#display-name-input")?.value.trim() || null;
-    const listColumnsRaw = el.querySelector("#list-columns-input")?.value ?? "";
-    const listColumnsVal = listColumnsRaw.split(",").map(s => s.trim()).filter(Boolean);
+    const listColumnsVal = columns;
 
     let jsonSchema = {};
     if (colType !== "binary") {
