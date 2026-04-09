@@ -141,8 +141,23 @@ async function renderPathView(el, treeName, treePath, label) {
     html += `
       <div class="card" style="margin-bottom:1rem">
         <div class="card-header">
-          <span>Contents</span>
-          <span class="count-badge">${children.length}</span>
+          <div class="row-actions" style="width:100%">
+            <div style="flex:1">
+              <span>Contents</span>
+              <span class="count-badge">${children.length}</span>
+            </div>
+            <button class="btn btn-sm btn-primary" id="new-folder-btn">New folder</button>
+          </div>
+        </div>
+        <div id="new-folder-form" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0)">
+          <div class="field-row" style="align-items:flex-end">
+            <div class="field" style="flex:1">
+              <label class="field-label" style="font-size:12px">Folder name</label>
+              <input class="input" id="new-folder-input" placeholder="e.g. sports, about, en" style="font-size:13px">
+            </div>
+            <button class="btn btn-sm btn-primary" id="new-folder-go">Create</button>
+            <button class="btn btn-sm" id="new-folder-cancel">Cancel</button>
+          </div>
         </div>`;
 
     if (children.length > 0) {
@@ -168,17 +183,6 @@ async function renderPathView(el, treeName, treePath, label) {
       html += `<div class="card-body"><div class="empty-state">No children at this path.</div></div>`;
     }
 
-    // Navigate to child input
-    html += `
-        <div class="card-body" style="border-top:1px solid var(--border,#e2e8f0)">
-          <div class="field-row" style="align-items:flex-end">
-            <div class="field" style="flex:1">
-              <label class="field-label" style="font-size:12px">Navigate to child</label>
-              <input class="input" id="nav-child-input" placeholder="e.g. sports, about, en" style="font-size:13px">
-            </div>
-            <button class="btn btn-sm btn-primary" id="nav-child-btn">Go →</button>
-          </div>
-        </div>
       </div>`;
 
     // ── Assign document (shown if no doc, or toggled via Reassign) ────
@@ -212,15 +216,24 @@ async function renderPathView(el, treeName, treePath, label) {
       });
     });
 
-    // Navigate to child
-    el.querySelector("#nav-child-btn")?.addEventListener("click", () => {
-      const seg = el.querySelector("#nav-child-input").value.trim().replace(/^\/+|\/+$/g, "");
+    // New folder
+    el.querySelector("#new-folder-btn")?.addEventListener("click", () => {
+      const form = el.querySelector("#new-folder-form");
+      form.style.display = "";
+      el.querySelector("#new-folder-input").focus();
+    });
+    el.querySelector("#new-folder-cancel")?.addEventListener("click", () => {
+      el.querySelector("#new-folder-form").style.display = "none";
+      el.querySelector("#new-folder-input").value = "";
+    });
+    el.querySelector("#new-folder-go")?.addEventListener("click", () => {
+      const seg = el.querySelector("#new-folder-input").value.trim().replace(/^\/+|\/+$/g, "");
       if (!seg) return;
       const childPath = (treePath === "/" ? "" : treePath) + "/" + seg;
       location.hash = `#/trees/${encodeURIComponent(treeName)}?path=${encodeURIComponent(childPath)}`;
     });
-    el.querySelector("#nav-child-input")?.addEventListener("keydown", e => {
-      if (e.key === "Enter") { e.preventDefault(); el.querySelector("#nav-child-btn").click(); }
+    el.querySelector("#new-folder-input")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); el.querySelector("#new-folder-go").click(); }
     });
 
     // Remove path
