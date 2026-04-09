@@ -1,4 +1,5 @@
-const BASE = () => localStorage.getItem("wren_url") || "http://localhost:4000";
+// Use relative paths by default (same origin). Override via localStorage for dev.
+const BASE = () => localStorage.getItem("wren_url") || "";
 
 async function req(path, options = {}) {
   const base = BASE();
@@ -8,7 +9,6 @@ async function req(path, options = {}) {
     headers: {
       "Content-Type": "application/json",
       "Accept": "application/json",
-      "Origin": base,
       ...(options.headers || {}),
     },
   });
@@ -21,7 +21,7 @@ async function upload(path, formData, method = "POST") {
   const base = BASE();
   const res = await fetch(`${base}${path}`, {
     method, credentials: "include", body: formData,
-    headers: { "Accept": "application/json", "Origin": base },
+    headers: { "Accept": "application/json" },
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(body.error || res.statusText), { status: res.status });

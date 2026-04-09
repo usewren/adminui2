@@ -74,10 +74,14 @@ function renderLogin() {
           </div>
           <button class="btn btn-primary" type="submit" style="width:100%">Create account</button>
         </form>
-        <p class="login-hint">Server: <code id="server-url"></code></p>
+        <p class="login-hint" id="server-hint" style="display:none">Server: <code id="server-url"></code></p>
       </div>
     </div>`;
-  document.getElementById("server-url").textContent = localStorage.getItem("wren_url") || "http://localhost:4000";
+  const customUrl = localStorage.getItem("wren_url");
+  if (customUrl) {
+    document.getElementById("server-url").textContent = customUrl;
+    document.getElementById("server-hint").style.display = "";
+  }
 
   // Tab switching
   document.getElementById("auth-tabs").addEventListener("click", e => {
