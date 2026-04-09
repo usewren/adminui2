@@ -31,6 +31,7 @@ async function upload(path, formData, method = "POST") {
 // Auth
 export const getSession  = () => req("/api/auth/get-session").catch(() => null);
 export const signIn      = (email, password) => req("/api/auth/sign-in/email", { method: "POST", body: JSON.stringify({ email, password }) });
+export const signUp      = (name, email, password) => req("/api/auth/sign-up/email", { method: "POST", body: JSON.stringify({ name, email, password }) });
 export const signOut     = () => req("/api/auth/sign-out", { method: "POST" });
 
 // Collections

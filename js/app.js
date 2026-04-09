@@ -42,6 +42,10 @@ function renderLogin() {
     <div class="login-wrap">
       <div class="login-box">
         <div class="login-logo">Wren Admin</div>
+        <div class="tabs" id="auth-tabs" style="margin-bottom:1rem">
+          <button class="tab active" data-tab="login">Sign in</button>
+          <button class="tab" data-tab="register">Register</button>
+        </div>
         <div id="login-error"></div>
         <form id="login-form">
           <div class="field">
@@ -54,10 +58,41 @@ function renderLogin() {
           </div>
           <button class="btn btn-primary" type="submit" style="width:100%">Sign in</button>
         </form>
+        <div id="register-error" style="display:none"></div>
+        <form id="register-form" style="display:none">
+          <div class="field">
+            <label class="field-label">Name</label>
+            <input class="input" type="text" name="name" autocomplete="name" required>
+          </div>
+          <div class="field">
+            <label class="field-label">Email</label>
+            <input class="input" type="email" name="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label class="field-label">Password</label>
+            <input class="input" type="password" name="password" autocomplete="new-password" required>
+          </div>
+          <button class="btn btn-primary" type="submit" style="width:100%">Create account</button>
+        </form>
         <p class="login-hint">Server: <code id="server-url"></code></p>
       </div>
     </div>`;
   document.getElementById("server-url").textContent = localStorage.getItem("wren_url") || "http://localhost:4000";
+
+  // Tab switching
+  document.getElementById("auth-tabs").addEventListener("click", e => {
+    const btn = e.target.closest(".tab");
+    if (!btn) return;
+    document.querySelectorAll("#auth-tabs .tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    const isLogin = btn.dataset.tab === "login";
+    document.getElementById("login-form").style.display = isLogin ? "" : "none";
+    document.getElementById("login-error").style.display = isLogin ? "" : "none";
+    document.getElementById("register-form").style.display = isLogin ? "none" : "";
+    document.getElementById("register-error").style.display = isLogin ? "none" : "";
+  });
+
+  // Sign in
   document.getElementById("login-form").addEventListener("submit", async e => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -70,7 +105,27 @@ function renderLogin() {
       currentUser = session.user;
       orgInfo = await api.getOrg().catch(() => null);
       await renderApp();
-      // If user came from an invite link, navigate to accept page
+      if (pendingToken) {
+        location.hash = `#/accept/${encodeURIComponent(pendingToken)}`;
+      }
+    } catch (err) {
+      errEl.innerHTML = alertHtml(err.message);
+    }
+  });
+
+  // Register
+  document.getElementById("register-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const errEl = document.getElementById("register-error");
+    errEl.innerHTML = "";
+    try {
+      const pendingToken = getPendingAcceptToken();
+      await api.signUp(fd.get("name"), fd.get("email"), fd.get("password"));
+      const session = await api.getSession();
+      currentUser = session.user;
+      orgInfo = await api.getOrg().catch(() => null);
+      await renderApp();
       if (pendingToken) {
         location.hash = `#/accept/${encodeURIComponent(pendingToken)}`;
       }
