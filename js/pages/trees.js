@@ -183,7 +183,7 @@ async function renderPathView(el, treeName, treePath, label) {
       html += `<div class="card-body"><div class="empty-state">No children at this path.</div></div>`;
     }
 
-      </div>`;
+    html += `</div>`;
 
     // ── Assign document (shown if no doc, or toggled via Reassign) ────
     if (!doc) {
