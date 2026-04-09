@@ -28,11 +28,15 @@ export async function mountApiKeys(el, orgInfo) {
                 <div id="key-created" style="display:none">
                   <div class="alert alert-success">
                     <strong>Key created!</strong> Copy the secret now — it won't be shown again.<br>
-                    <code id="key-secret" class="mono" style="word-break:break-all;display:block;margin-top:.5rem"></code>
+                    <code id="key-secret" class="mono" style="word-break:break-all;display:block;margin-top:.5rem;user-select:all;cursor:pointer" title="Click to select"></code>
+                  </div>
+                  <div class="row-actions" style="margin-top:.75rem">
+                    <button class="btn btn-sm" type="button" id="copy-key-btn">Copy to clipboard</button>
+                    <button class="btn btn-sm btn-primary" type="button" id="done-key-btn">Done — I've copied it</button>
                   </div>
                 </div>
                 <div id="create-key-error"></div>
-                <div class="row-actions">
+                <div id="create-key-actions" class="row-actions">
                   <button class="btn btn-primary" type="submit">Create</button>
                   <button class="btn" type="button" id="cancel-key-btn">Cancel</button>
                 </div>
@@ -76,13 +80,27 @@ export async function mountApiKeys(el, orgInfo) {
           const secret = res.secret ?? res.key ?? res.apiKey;
           el.querySelector("#key-secret").textContent = secret;
           el.querySelector("#key-created").style.display = "";
-          e.target.querySelector("[name=name]").value = "";
-          // Reload list after a second
-          setTimeout(() => load(), 2000);
+          el.querySelector("#create-key-actions").style.display = "none";
+          e.target.querySelector("[name=name]").disabled = true;
         } catch (err) {
           errEl.innerHTML = alertHtml(err.message);
         }
       });
+
+      el.querySelector("#copy-key-btn")?.addEventListener("click", () => {
+        const secret = el.querySelector("#key-secret").textContent;
+        navigator.clipboard.writeText(secret).then(() => {
+          el.querySelector("#copy-key-btn").textContent = "Copied!";
+        }).catch(() => {
+          // Fallback: select the text
+          const range = document.createRange();
+          range.selectNodeContents(el.querySelector("#key-secret"));
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(range);
+        });
+      });
+
+      el.querySelector("#done-key-btn")?.addEventListener("click", () => load());
 
       bindConfirm(el, ".confirm-btn", async btn => {
         const id = btn.dataset.revoke;
