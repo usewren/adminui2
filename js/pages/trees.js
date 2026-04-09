@@ -77,7 +77,13 @@ export async function mountTree(el, name, params) {
 async function renderPathView(el, treeName, treePath, label) {
   render(el, spinner());
   try {
-    const node = await api.getTreeNode(treeName, treePath);
+    // getTreeNode returns 404 for paths that don't exist yet — treat as empty
+    let node;
+    try { node = await api.getTreeNode(treeName, treePath); }
+    catch (err) {
+      if (err.status === 404) node = { path: treePath, document: null, children: [] };
+      else throw err;
+    }
     const doc = node.document;
     const children = node.children ?? [];
 
