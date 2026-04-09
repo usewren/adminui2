@@ -157,8 +157,9 @@ async function renderApp() {
       <div class="sidebar-org-name">${escHtml(orgInfo.orgs[0]?.name ?? "")}</div>` : ""}
       <nav class="sidebar-nav">
         <div class="sidebar-section-label">Data</div>
-        <a class="sidebar-link" href="#/" data-route="collections">Collections</a>
         <a class="sidebar-link" href="#/trees" data-route="trees">Trees</a>
+        <div id="sidebar-trees"></div>
+        <a class="sidebar-link" href="#/" data-route="collections">Collections</a>
         <div id="sidebar-collections"></div>
         <div class="sidebar-section-label" style="margin-top:1rem">Settings</div>
         <a class="sidebar-link" href="#/settings/apikeys" data-route="apikeys">API Keys</a>
@@ -199,7 +200,7 @@ async function renderApp() {
     }
   });
 
-  await refreshCollections();
+  await Promise.all([refreshTrees(), refreshCollections()]);
 
   window.addEventListener("hashchange", () => {
     route();
@@ -207,6 +208,21 @@ async function renderApp() {
     if (link) link.href = `/oldadmin${location.hash}`;
   });
   route();
+}
+
+async function refreshTrees() {
+  let trees = [];
+  try { trees = await api.listTrees(); } catch { trees = []; }
+  const el = document.getElementById("sidebar-trees");
+  if (!el) return;
+  if (trees.length === 0) {
+    el.innerHTML = `<span class="sidebar-empty">No trees</span>`;
+    return;
+  }
+  el.innerHTML = trees.map(t => {
+    const name = t.name ?? t;
+    return `<a class="sidebar-link sidebar-link--indent" href="#/trees/${encodeURIComponent(name)}" data-tree="${escHtml(name)}">${escHtml(name)}</a>`;
+  }).join("");
 }
 
 async function refreshCollections() {
