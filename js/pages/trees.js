@@ -128,7 +128,7 @@ async function renderPathView(el, treeName, treePath, label) {
               </div>
               <a class="btn btn-sm" href="#/collections/${encodeURIComponent(doc.collection)}/${encodeURIComponent(doc.id)}">Open</a>
               <button class="btn btn-sm" id="reassign-btn">Reassign</button>
-              <button class="btn btn-sm btn-danger" id="remove-btn">Remove</button>
+              <button class="btn btn-sm btn-danger" id="unassign-btn">Unassign</button>
             </div>
           </div>
           <div class="card-body">
@@ -242,13 +242,12 @@ async function renderPathView(el, treeName, treePath, label) {
       if (e.key === "Enter") { e.preventDefault(); el.querySelector("#new-folder-go").click(); }
     });
 
-    // Remove path
-    el.querySelector("#remove-btn")?.addEventListener("click", async () => {
-      if (!confirm(`Remove path "${treePath}" from ${treeName}?`)) return;
+    // Unassign document (keep path as empty folder)
+    el.querySelector("#unassign-btn")?.addEventListener("click", async () => {
+      if (!confirm(`Unassign document from "${treePath}"? The path will remain as an empty folder.`)) return;
       try {
-        await api.deleteTreePath(treeName, treePath);
-        const parent = treePath.split("/").slice(0, -1).join("/") || "/";
-        location.hash = `#/trees/${encodeURIComponent(treeName)}?path=${encodeURIComponent(parent)}`;
+        await api.setTreePath(treeName, treePath); // PUT with no documentId → clears document
+        await renderPathView(el, treeName, treePath, label);
       } catch (err) {
         window.alert(err.message);
       }
