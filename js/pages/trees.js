@@ -226,11 +226,17 @@ async function renderPathView(el, treeName, treePath, label) {
       el.querySelector("#new-folder-form").style.display = "none";
       el.querySelector("#new-folder-input").value = "";
     });
-    el.querySelector("#new-folder-go")?.addEventListener("click", () => {
+    el.querySelector("#new-folder-go")?.addEventListener("click", async () => {
       const seg = el.querySelector("#new-folder-input").value.trim().replace(/^\/+|\/+$/g, "");
       if (!seg) return;
       const childPath = (treePath === "/" ? "" : treePath) + "/" + seg;
-      location.hash = `#/trees/${encodeURIComponent(treeName)}?path=${encodeURIComponent(childPath)}`;
+      try {
+        // Create the empty folder on the server (PUT with no documentId)
+        await api.setTreePath(treeName, childPath);
+        location.hash = `#/trees/${encodeURIComponent(treeName)}?path=${encodeURIComponent(childPath)}`;
+      } catch (err) {
+        window.alert(err.message);
+      }
     });
     el.querySelector("#new-folder-input")?.addEventListener("keydown", e => {
       if (e.key === "Enter") { e.preventDefault(); el.querySelector("#new-folder-go").click(); }
