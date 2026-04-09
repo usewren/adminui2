@@ -85,12 +85,30 @@ async function renderPathView(el, treeName, treePath, label) {
       else throw err;
     }
     const doc = node.document;
-    const children = node.children ?? [];
+    const rawChildren = node.children ?? [];
 
-    // Fetch display name rules for all collections referenced by children
-    const childCollections = new Set();
-    if (doc) childCollections.add(doc.collection);
-    // Children don't have collection info from getTreeNode — we'll handle previews differently
+    // Group descendants into first-level children.
+    // If current path is /sports and descendants are /sports/tennis/singles, /sports/tennis/doubles, /sports/football
+    // → first-level children: "tennis" (folder, 2 items), "football" (has doc)
+    const prefix = treePath === "/" ? "/" : treePath + "/";
+    const childMap = new Map(); // segment → { path, hasDoc, documentId, descendantCount }
+    for (const c of rawChildren) {
+      const rel = c.path.startsWith(prefix) ? c.path.slice(prefix.length) : c.path.replace(/^\//, "");
+      const segment = rel.split("/")[0];
+      if (!segment) continue;
+      const childPath = prefix === "/" ? "/" + segment : prefix + segment;
+      if (!childMap.has(segment)) {
+        // Check if this exact child path has a document (i.e. rel has no further segments)
+        const isExact = !rel.includes("/");
+        childMap.set(segment, { segment, path: childPath, hasDoc: isExact, documentId: isExact ? c.documentId : null, descendantCount: 1 });
+      } else {
+        const entry = childMap.get(segment);
+        entry.descendantCount++;
+        // If this exact path matches, mark it as having a doc
+        if (rel === segment) { entry.hasDoc = true; entry.documentId = c.documentId; }
+      }
+    }
+    const children = [...childMap.values()].sort((a, b) => a.segment.localeCompare(b.segment));
 
     let html = `<div style="margin-top:1rem">`;
 
@@ -129,14 +147,18 @@ async function renderPathView(el, treeName, treePath, label) {
 
     if (children.length > 0) {
       html += `<table class="table" style="font-size:13px">
-        <thead><tr><th>Path</th><th>Document</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Info</th><th></th></tr></thead>
         <tbody>
           ${children.map(c => {
-            const segment = c.path.split("/").filter(Boolean).pop() ?? c.path;
             const childHref = `#/trees/${encodeURIComponent(treeName)}?path=${encodeURIComponent(c.path)}`;
+            const isFolder = c.descendantCount > 1 || !c.hasDoc;
+            const icon = isFolder ? "📁" : "📄";
+            const info = c.hasDoc
+              ? `<span class="mono" style="font-size:11px">${escHtml(c.documentId?.slice(0, 12) ?? "")}…</span>`
+              : `<span class="muted" style="font-size:11px">${c.descendantCount > 1 ? c.descendantCount + " items" : "empty"}</span>`;
             return `<tr class="clickable-row" data-href="${childHref}">
-              <td><a class="link" href="${childHref}">/${escHtml(segment)}</a></td>
-              <td class="muted mono" style="font-size:11px">${escHtml(c.documentId?.slice(0, 12) ?? "")}…</td>
+              <td><a class="link" href="${childHref}">${icon} ${escHtml(c.segment)}${isFolder ? "/" : ""}</a></td>
+              <td>${info}</td>
               <td style="text-align:right"><span class="muted" style="font-size:11px">→</span></td>
             </tr>`;
           }).join("")}
