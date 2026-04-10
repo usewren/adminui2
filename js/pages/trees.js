@@ -81,11 +81,12 @@ async function renderPathView(el, treeName, treePath, label) {
     let node;
     try { node = await api.getTreeNode(treeName, treePath); }
     catch (err) {
-      if (err.status === 404) node = { path: treePath, document: null, children: [] };
+      if (err.status === 404) node = { path: treePath, document: null, children: [], pathExists: false };
       else throw err;
     }
     const doc = node.document;
     const rawChildren = node.children ?? [];
+    const pathExists = node.pathExists ?? false;
 
     // Group descendants into first-level children.
     // If current path is /sports and descendants are /sports/tennis/singles, /sports/tennis/doubles, /sports/football
@@ -111,6 +112,14 @@ async function renderPathView(el, treeName, treePath, label) {
     const children = [...childMap.values()].sort((a, b) => a.segment.localeCompare(b.segment));
 
     let html = `<div style="margin-top:1rem">`;
+
+    // ── Remove folder (empty path, not root) ──────────────────────────
+    if (!doc && pathExists && treePath !== "/") {
+      html += `
+        <div style="margin-bottom:1rem;display:flex;justify-content:flex-end">
+          <button class="btn btn-sm btn-danger" id="remove-folder-btn">Remove folder</button>
+        </div>`;
+    }
 
     // ── Document at this path ──────────────────────────────────────────
     if (doc) {
@@ -292,6 +301,22 @@ async function renderPathView(el, treeName, treePath, label) {
       }
     });
 
+    // Remove folder (delete explicit path entry, navigate to parent)
+    el.querySelector("#remove-folder-btn")?.addEventListener("click", async () => {
+      const hasChildren = children.length > 0;
+      const msg = hasChildren
+        ? `Remove folder "${treePath}"? ${children.length} descendant path${children.length === 1 ? "" : "s"} will remain and the folder will reappear as an implicit parent.`
+        : `Remove folder "${treePath}"?`;
+      if (!confirm(msg)) return;
+      try {
+        await api.deleteTreePath(treeName, treePath);
+        const parent = treePath.split("/").slice(0, -1).join("/") || "/";
+        location.hash = `#/trees/${encodeURIComponent(treeName)}?path=${encodeURIComponent(parent)}`;
+      } catch (err) {
+        window.alert(err.message);
+      }
+    });
+
     // Reassign toggle
     el.querySelector("#reassign-btn")?.addEventListener("click", () => {
       const card = el.querySelector("#assign-card");
@@ -313,9 +338,15 @@ async function renderPathView(el, treeName, treePath, label) {
   }
 }
 
-// Sanitize a string for use as a URL path segment
+// Sanitize a string for use as a URL path segment — preserve case,
+// only replace whitespace and characters that break URL paths.
 function sanitizeSegment(s) {
-  return String(s).trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  return String(s)
+    .trim()
+    .replace(/\s+/g, "-")                  // spaces → hyphens
+    .replace(/[\/\\?#&%"'<>`{}|^]/g, "")   // strip URL-reserved chars
+    .replace(/-+/g, "-")                   // collapse consecutive hyphens
+    .replace(/^-+|-+$/g, "");              // trim leading/trailing hyphens
 }
 
 // Derive a child segment name from document data
