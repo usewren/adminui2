@@ -275,7 +275,7 @@ function route() {
     mountCollection(main, decodeURIComponent(p1), params, { refreshCollections });
   } else if (p0 === "trees" && p1) {
     // Tree view: #/trees/:name
-    highlightSidebar(`[data-route="trees"]`);
+    highlightSidebar(`[data-tree="${CSS.escape(decodeURIComponent(p1))}"]`);
     mountTree(main, decodeURIComponent(p1), params);
   } else if (p0 === "trees") {
     highlightSidebar(`[data-route="trees"]`);
