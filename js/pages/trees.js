@@ -146,7 +146,8 @@ async function renderPathView(el, treeName, treePath, label) {
               <span>Contents</span>
               <span class="count-badge">${children.length}</span>
             </div>
-            <button class="btn btn-sm btn-primary" id="new-folder-btn">New folder</button>
+            <button class="btn btn-sm" id="new-folder-btn">New folder</button>
+            <button class="btn btn-sm btn-primary" id="add-child-doc-btn">Add document</button>
           </div>
         </div>
         <div id="new-folder-form" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0)">
@@ -157,6 +158,16 @@ async function renderPathView(el, treeName, treePath, label) {
             </div>
             <button class="btn btn-sm btn-primary" id="new-folder-go">Create</button>
             <button class="btn btn-sm" id="new-folder-cancel">Cancel</button>
+          </div>
+        </div>
+        <div id="add-child-doc-form" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0)">
+          <div class="field" style="margin-bottom:.5rem">
+            <label class="field-label" style="font-size:12px">Path segment <span class="field-hint">(e.g. index, about)</span></label>
+            <input class="input" id="add-child-name-input" placeholder="segment name" style="font-size:13px">
+          </div>
+          <div id="add-child-picker-container"></div>
+          <div style="margin-top:.5rem">
+            <button class="btn btn-sm" id="add-child-cancel">Cancel</button>
           </div>
         </div>`;
 
@@ -242,6 +253,34 @@ async function renderPathView(el, treeName, treePath, label) {
       if (e.key === "Enter") { e.preventDefault(); el.querySelector("#new-folder-go").click(); }
     });
 
+    // Add document as a child at a new path
+    el.querySelector("#add-child-doc-btn")?.addEventListener("click", () => {
+      const form = el.querySelector("#add-child-doc-form");
+      form.style.display = "";
+      const nameInput = el.querySelector("#add-child-name-input");
+      nameInput.focus();
+      // Mount a picker with a callback that derives the child path from either
+      // the user's typed segment or the doc's filename/display/id.
+      const pickerContainer = el.querySelector("#add-child-picker-container");
+      mountDocPicker(pickerContainer, treePath, treeName, label, el, {
+        getPath: (doc, displayRule) => {
+          let seg = nameInput.value.trim().replace(/^\/+|\/+$/g, "");
+          if (!seg) seg = deriveSegmentName(doc, displayRule);
+          if (!seg) {
+            nameInput.focus();
+            window.alert("Enter a path segment or pick a document with a filename");
+            return null;
+          }
+          return (treePath === "/" ? "" : treePath) + "/" + seg;
+        },
+      });
+    });
+    el.querySelector("#add-child-cancel")?.addEventListener("click", () => {
+      el.querySelector("#add-child-doc-form").style.display = "none";
+      el.querySelector("#add-child-name-input").value = "";
+      el.querySelector("#add-child-picker-container").innerHTML = "";
+    });
+
     // Unassign document (keep path as empty folder)
     el.querySelector("#unassign-btn")?.addEventListener("click", async () => {
       if (!confirm(`Unassign document from "${treePath}"? The path will remain as an empty folder.`)) return;
@@ -274,8 +313,28 @@ async function renderPathView(el, treeName, treePath, label) {
   }
 }
 
+// Sanitize a string for use as a URL path segment
+function sanitizeSegment(s) {
+  return String(s).trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// Derive a child segment name from document data
+// Priority: filename (binary) → display rule → id prefix
+function deriveSegmentName(doc, displayRule) {
+  if (!doc) return "";
+  const data = doc.data ?? {};
+  if (data.filename) return sanitizeSegment(data.filename);
+  if (displayRule) {
+    const name = applyDisplayRule(displayRule, data);
+    if (name) return sanitizeSegment(name);
+  }
+  return doc.id ? doc.id.slice(0, 8) : "";
+}
+
 // ── DocPicker: Browse / Create New / Direct ID ───────────────────────────────
-async function mountDocPicker(el, path, treeName, label, treeContainer) {
+// options.getPath(doc) — optional callback returning the target path dynamically.
+//                       receives the full doc object so filename/name can be used.
+async function mountDocPicker(el, path, treeName, label, treeContainer, options = {}) {
   let pickerTab = "browse";
   let selectedCollection = "";
   let collections = [];
@@ -297,10 +356,20 @@ async function mountDocPicker(el, path, treeName, label, treeContainer) {
     }
   }
 
-  async function assignDoc(docId) {
+  async function assignDoc(docId, doc) {
     try {
-      await api.setTreePath(treeName, path, docId);
-      await renderPathView(treeContainer, treeName, path, label);
+      // Compute target path: either from options.getPath callback, or use the fixed path
+      let targetPath = path;
+      if (options.getPath) {
+        const resolvedDoc = doc ?? { id: docId, data: {} };
+        targetPath = options.getPath(resolvedDoc, collectionSchema?.displayName);
+        if (!targetPath) return;
+      }
+      await api.setTreePath(treeName, targetPath, docId);
+      // After a child assignment (getPath mode), reload the parent path so the new child shows up.
+      // For direct assignments, reload the same path.
+      const reloadPath = options.getPath ? path : targetPath;
+      await renderPathView(treeContainer, treeName, reloadPath, label);
     } catch (err) {
       window.alert(err.message);
     }
@@ -394,9 +463,13 @@ async function mountDocPicker(el, path, treeName, label, treeContainer) {
       renderPicker();
     });
 
-    // Browse tab: pick doc
+    // Browse tab: pick doc — pass the full doc so getPath can use its data
     el.querySelectorAll("[data-pick-doc]").forEach(btn => {
-      btn.addEventListener("click", () => assignDoc(btn.dataset.pickDoc));
+      btn.addEventListener("click", () => {
+        const docId = btn.dataset.pickDoc;
+        const doc = collectionDocs.find(d => d.id === docId);
+        assignDoc(docId, doc);
+      });
     });
 
     // Create tab: create & assign
@@ -410,7 +483,7 @@ async function mountDocPicker(el, path, treeName, label, treeContainer) {
       catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
       try {
         const doc = await api.createDocument(col, data);
-        await assignDoc(doc.id);
+        await assignDoc(doc.id, doc);
       } catch (err) {
         errEl.innerHTML = alertHtml(err.message);
       }
