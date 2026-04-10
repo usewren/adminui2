@@ -1,5 +1,5 @@
 import * as api from "../api.js";
-import { render, spinner, alert as alertHtml, escHtml, fmtDate, applyDisplayRule } from "../ui.js";
+import { render, spinner, alert as alertHtml, escHtml, fmtDate, fmtBytes, applyDisplayRule } from "../ui.js";
 
 // ── Trees list (fallback overview) ───────────────────────────────────────────
 export async function mountTrees(el) {
@@ -382,22 +382,57 @@ async function mountDocPicker(el, path, treeName, label, treeContainer, options 
     }).join("");
 
     const displayRule = collectionSchema?.displayName ?? null;
+    const listColumns = collectionSchema?.listColumns ?? null;
+    const isBinaryCol = collectionSchema?.collectionType === "binary";
 
-    const docRows = collectionDocs.length === 0
-      ? `<div class="empty-state" style="padding:.75rem">No documents found.</div>`
-      : `<table class="table" style="font-size:13px">
-          <thead><tr><th>ID</th><th>Name</th><th></th></tr></thead>
-          <tbody>
-            ${collectionDocs.map(d => {
-              const displayName = displayRule ? applyDisplayRule(displayRule, d.data) : null;
-              return `<tr>
-                <td class="mono" style="font-size:11px">${escHtml(d.id.slice(0, 12))}…</td>
-                <td>${displayName ? escHtml(displayName) : `<span class="muted">—</span>`}</td>
-                <td><button class="btn btn-sm btn-primary" data-pick-doc="${escHtml(d.id)}">Select</button></td>
-              </tr>`;
-            }).join("")}
-          </tbody>
-        </table>`;
+    let docRows;
+    if (collectionDocs.length === 0) {
+      docRows = `<div class="empty-state" style="padding:.75rem">No documents found.</div>`;
+    } else if (isBinaryCol) {
+      // Binary collection — match the collection list style: Filename | Type | Size
+      docRows = `<table class="table" style="font-size:13px">
+        <thead><tr><th>Filename</th><th>Type</th><th>Size</th><th></th></tr></thead>
+        <tbody>
+          ${collectionDocs.map(d => {
+            const meta = d.data ?? {};
+            return `<tr>
+              <td>${escHtml(meta.filename ?? d.id)}</td>
+              <td class="muted">${escHtml(meta.mimeType ?? "")}</td>
+              <td class="muted">${fmtBytes(meta.size)}</td>
+              <td><button class="btn btn-sm btn-primary" data-pick-doc="${escHtml(d.id)}">Select</button></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    } else {
+      // JSON collection — display name as primary, id as subtitle, optional listColumns
+      docRows = `<table class="table" style="font-size:13px">
+        <thead><tr>
+          <th>Name</th>
+          ${listColumns ? listColumns.map(c => `<th>${escHtml(c)}</th>`).join("") : ""}
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${collectionDocs.map(d => {
+            const preview = displayRule ? applyDisplayRule(displayRule, d.data) : null;
+            const extraCols = listColumns
+              ? listColumns.map(c => {
+                  const val = d.data?.[c];
+                  return `<td class="muted">${escHtml(val == null ? "" : String(val))}</td>`;
+                }).join("")
+              : "";
+            return `<tr>
+              <td>
+                ${escHtml(preview ?? d.id)}
+                ${preview ? `<div class="mono muted" style="font-size:10px">${escHtml(d.id.slice(0, 12))}…</div>` : ""}
+              </td>
+              ${extraCols}
+              <td><button class="btn btn-sm btn-primary" data-pick-doc="${escHtml(d.id)}">Select</button></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    }
 
     el.innerHTML = `
       <div class="tabs" id="picker-tabs" style="margin-bottom:.75rem">
