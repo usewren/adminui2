@@ -41,7 +41,7 @@ function renderLogin() {
   app.innerHTML = `
     <div class="login-wrap">
       <div class="login-box">
-        <div class="login-logo">Wren Admin</div>
+        <div class="login-logo"><img src="/wren-logo.svg" alt="WREN" style="width:28px;height:28px;vertical-align:middle;margin-right:8px;border-radius:6px">WREN Admin</div>
         <div class="tabs" id="auth-tabs" style="margin-bottom:1rem">
           <button class="tab active" data-tab="login">Sign in</button>
           <button class="tab" data-tab="register">Register</button>
@@ -144,7 +144,7 @@ async function renderApp() {
   const app = document.getElementById("app");
   app.innerHTML = `
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-logo">Wren</div>
+      <a href="/" class="sidebar-logo"><img src="/wren-logo.svg" alt="WREN" style="width:22px;height:22px;vertical-align:middle;margin-right:6px;border-radius:4px">WREN</a>
       ${orgInfo && orgInfo.orgs && orgInfo.orgs.length > 1 ? `
       <div class="sidebar-org-switcher">
         <select class="sidebar-org-select" id="org-switcher">

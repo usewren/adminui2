@@ -506,12 +506,18 @@ pre {
 
 /* ─── Sidebar flat aliases ───────────────────────────────── */
 .sidebar-logo {
-  display: block;
+  display: flex;
+  align-items: center;
   padding: 18px 20px 16px;
   font-size: 18px;
   font-weight: 700;
   color: var(--primary);
+  text-decoration: none;
   border-bottom: 1px solid var(--border);
+}
+.sidebar-logo:hover {
+  text-decoration: none;
+  opacity: 0.85;
 }
 .sidebar-nav {
   display: flex;
