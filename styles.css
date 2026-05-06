@@ -552,6 +552,14 @@ pre {
 .sidebar-link--indent { padding-left: 20px; font-size: 12px; color: var(--text-muted); }
 .sidebar-link--indent.active { color: #fff; }
 .sidebar-empty { font-size: 12px; color: var(--text-muted); padding: 4px 20px; }
+.sidebar-link--parent { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+.sidebar-toggle {
+  font-size: 8px; display: inline-block; transition: transform .15s;
+  width: 14px; text-align: center; flex-shrink: 0; color: var(--text-muted);
+}
+.sidebar-toggle.open { transform: rotate(90deg); }
+.sidebar-sublist { overflow: hidden; }
+.sidebar-sublist.collapsed { display: none; }
 .sidebar-org-switcher { padding: 8px 12px; border-bottom: 1px solid var(--border); }
 .sidebar-org-select {
   width: 100%;

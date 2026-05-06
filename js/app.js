@@ -157,10 +157,12 @@ async function renderApp() {
       <div class="sidebar-org-name">${escHtml(orgInfo.orgs[0]?.name ?? "")}</div>` : ""}
       <nav class="sidebar-nav">
         <div class="sidebar-section-label">Data</div>
-        <a class="sidebar-link" href="#/trees" data-route="trees">Trees</a>
-        <div id="sidebar-trees"></div>
-        <a class="sidebar-link" href="#/" data-route="collections">Collections</a>
-        <div id="sidebar-collections"></div>
+        <a class="sidebar-link sidebar-link--parent" href="#/trees" data-route="trees">
+          <span class="sidebar-toggle" data-target="sidebar-trees">&#9654;</span> Trees</a>
+        <div id="sidebar-trees" class="sidebar-sublist"></div>
+        <a class="sidebar-link sidebar-link--parent" href="#/" data-route="collections">
+          <span class="sidebar-toggle" data-target="sidebar-collections">&#9654;</span> Collections</a>
+        <div id="sidebar-collections" class="sidebar-sublist"></div>
         <div class="sidebar-section-label" style="margin-top:1rem">Settings</div>
         <a class="sidebar-link" href="#/settings/apikeys" data-route="apikeys">API Keys</a>
         <a class="sidebar-link" href="#/settings/collaborators" data-route="collaborators">Collaborators</a>
@@ -201,6 +203,18 @@ async function renderApp() {
   });
 
   await Promise.all([refreshTrees(), refreshCollections()]);
+
+  // Expand sublists by default, wire up toggle arrows
+  document.querySelectorAll(".sidebar-toggle").forEach(toggle => {
+    const target = document.getElementById(toggle.dataset.target);
+    if (target) toggle.classList.add("open"); // start expanded
+    toggle.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggle.classList.toggle("open");
+      target?.classList.toggle("collapsed");
+    });
+  });
 
   window.addEventListener("hashchange", () => {
     route();
