@@ -196,6 +196,25 @@ async function renderApp() {
     renderLogin();
   });
 
+  // Impersonation banner: always visible while an admin views the org as a member
+  api.getImpersonation().then(imp => {
+    document.getElementById("impersonation-banner")?.remove();
+    if (!imp) return;
+    const until = new Date(imp.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const bar = document.createElement("div");
+    bar.id = "impersonation-banner";
+    bar.style.cssText = "position:sticky;top:0;z-index:1000;background:#b45309;color:#fff;padding:8px 16px;display:flex;gap:12px;align-items:center;justify-content:center;font-size:14px";
+    bar.innerHTML = `<span>Viewing as <strong>${escHtml(imp.as.name || imp.as.email)}</strong> (${escHtml(imp.as.email)}).
+      Changes are saved as theirs and recorded as made by you. Ends at ${until}.</span>
+      <button class="btn btn-sm" id="end-impersonation" style="background:#fff;color:#b45309">Stop viewing as</button>`;
+    document.body.prepend(bar);
+    bar.querySelector("#end-impersonation").addEventListener("click", async () => {
+      await api.endImpersonation().catch(() => {});
+      location.hash = "#/settings/collaborators";
+      location.reload();
+    });
+  }).catch(() => {});
+
   document.getElementById("org-switcher")?.addEventListener("change", async e => {
     const orgId = e.target.value;
     try {
