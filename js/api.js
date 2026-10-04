@@ -58,7 +58,7 @@ export const assetUrl        = (col, id, v) => `${BASE()}/api/v1/${col}/${id}/ra
 
 // Trees
 export const listTrees    = () => req("/api/v1/tree").then(r => r.trees);
-export const getTreeNode  = (name, path) => req(`/api/v1/tree/${name}${path}`);
+export const getTreeNode  = (name, path, label) => req(`/api/v1/tree/${name}${path}${label ? `?label=${encodeURIComponent(label)}` : ""}`);
 export const getFullTree  = (name, label) => req(`/api/v1/tree/${name}?full=true${label ? `&label=${encodeURIComponent(label)}` : ""}`).then(r => r.nodes);
 export const setTreePath  = (name, path, documentId) => req(`/api/v1/tree/${name}${path}`, { method: "PUT", body: JSON.stringify({ documentId }) });
 export const deleteTreePath = (name, path) => req(`/api/v1/tree/${name}${path}`, { method: "DELETE" });

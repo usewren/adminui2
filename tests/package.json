@@ -1,0 +1,13 @@
+{
+  "name": "wren-adminui-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser (end-to-end) tests for the WREN Admin UI, run in headless Chrome against a throwaway WREN server",
+  "scripts": {
+    "test": "node --test --test-concurrency=4 \"e2e/*.test.mjs\"",
+    "coverage": "node e2e/lib/coverage-report.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}

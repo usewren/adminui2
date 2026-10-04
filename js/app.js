@@ -223,8 +223,8 @@ async function renderApp() {
       await api.switchOrg(orgId);
       orgInfo = await api.getOrg().catch(() => null);
       collections = [];
-      // Re-render the whole app shell with updated org
-      window.removeEventListener("hashchange", route);
+      // Re-render the whole app shell with updated org (renderApp re-adds onHashChange)
+      window.removeEventListener("hashchange", onHashChange);
       await renderApp();
     } catch (err) {
       window.alert("Failed to switch org: " + err.message);
@@ -247,12 +247,16 @@ async function renderApp() {
     });
   });
 
-  window.addEventListener("hashchange", () => {
-    route();
-    const link = document.getElementById("old-admin-link");
-    if (link) link.href = `/oldadmin${location.hash}`;
-  });
+  // Named handler: adding the same function again is a no-op, so re-rendering the
+  // shell (org switch, sign in after sign out) never routes twice per hash change
+  window.addEventListener("hashchange", onHashChange);
   route();
+}
+
+function onHashChange() {
+  route();
+  const link = document.getElementById("old-admin-link");
+  if (link) link.href = `/oldadmin${location.hash}`;
 }
 
 async function refreshTrees() {

@@ -7,12 +7,13 @@ export async function mountPermissions(el, orgInfo) {
   async function load() {
     render(el, spinner());
     try {
-      const [perms, members, keys] = await Promise.all([
+      const [perms, members, keys, groups] = await Promise.all([
         api.listPermissions(),
         api.listMembers().catch(() => []),
         api.listKeys().catch(() => []),
+        api.listGroups().catch(() => []),
       ]);
-      renderPage(perms, members, keys);
+      renderPage(perms, members, keys, groups);
     } catch (err) {
       if (err.status === 403) {
         const orgName = orgInfo?.orgs?.find(o => o.id === orgInfo?.current)?.name ?? "this org";
@@ -33,8 +34,8 @@ export async function mountPermissions(el, orgInfo) {
     }
   }
 
-  function renderPage(perms, members, keys) {
-    const pl = p => principalLabel(p, members, keys);
+  function renderPage(perms, members, keys, groups) {
+    const pl = p => principalLabel(p, members, keys, groups);
 
     const accessOpts = ["none", "read", "write", "admin"].map(a =>
       `<option value="${a}">${a}</option>`).join("");
@@ -296,7 +297,8 @@ export async function mountPermissions(el, orgInfo) {
           try {
             await api.updatePermission(id, {
               access: fd.get("access"),
-              labelFilter: fd.get("labelFilter") || undefined,
+              // null clears the filter (undefined would leave it unchanged)
+              labelFilter: fd.get("labelFilter") || null,
               auditReads: fd.get("auditReads") === "on",
               auditWrites: fd.get("auditWrites") === "on",
             });
