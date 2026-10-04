@@ -74,7 +74,19 @@ export const switchOrg = (orgId) => req("/api/v1/org", { method: "PUT", body: JS
 
 // Invites
 export const listInvites     = () => req("/api/v1/invites").then(r => r.invites);
-export const createInvite    = (email, role) => req("/api/v1/invites", { method: "POST", body: JSON.stringify({ email, role }) });
+export const createInvite    = (email, role, groupIds = []) => req("/api/v1/invites", { method: "POST", body: JSON.stringify({ email, role, groupIds }) });
+
+// Groups: people get data access through groups (Editors, Viewers, or your own)
+export const listGroups        = () => req("/api/v1/groups").then(r => r.groups);
+export const createGroup       = (name, description, access) => req("/api/v1/groups", { method: "POST", body: JSON.stringify({ name, description, access: access || undefined }) });
+export const deleteGroup       = (id) => req(`/api/v1/groups/${id}`, { method: "DELETE" });
+export const addGroupMember    = (groupId, userId) => req(`/api/v1/groups/${groupId}/members/${userId}`, { method: "PUT" });
+export const removeGroupMember = (groupId, userId) => req(`/api/v1/groups/${groupId}/members/${userId}`, { method: "DELETE" });
+
+// Impersonation: an org admin views the org as one of its members
+export const startImpersonation = (userId) => req(`/api/v1/members/${userId}/impersonate`, { method: "POST" });
+export const getImpersonation   = () => req("/api/v1/impersonation").then(r => r.impersonating);
+export const endImpersonation   = () => req("/api/v1/impersonation", { method: "DELETE" });
 export const revokeInvite    = (id) => req(`/api/v1/invites/${id}`, { method: "DELETE" });
 export const acceptInviteToken = (token) => req("/api/v1/invites/accept", { method: "POST", body: JSON.stringify({ token }) });
 export const listReceivedInvites = () => req("/api/v1/invites/received").then(r => r.invites);
