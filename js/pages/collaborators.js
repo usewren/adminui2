@@ -203,8 +203,12 @@ export async function mountCollaborators(el, currentUser, orgInfo) {
         const errEl = content.querySelector("#invite-error");
         errEl.innerHTML = "";
         try {
-          await api.createInvite(fd.get("email"), fd.get("role"));
-          errEl.innerHTML = `<div class="alert alert-success">Invite sent to ${escHtml(fd.get("email"))}.</div>`;
+          const inv = await api.createInvite(fd.get("email"), fd.get("role"));
+          // emailSent is false when the server has no mail transport configured:
+          // then the inviter has to pass the link on themselves.
+          errEl.innerHTML = inv.emailSent
+            ? `<div class="alert alert-success">Invite emailed to ${escHtml(fd.get("email"))}.</div>`
+            : `<div class="alert alert-success">Invite created for ${escHtml(fd.get("email"))}. This server doesn't send email, so share this link with them:<br><code style="word-break:break-all;user-select:all">${escHtml(inv.acceptUrl ?? "")}</code></div>`;
           e.target.reset();
           await load();
         } catch (err) {

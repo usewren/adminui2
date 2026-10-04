@@ -13,7 +13,8 @@ async function req(path, options = {}) {
     },
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error || res.statusText), { status: res.status });
+  // WREN API errors use `error`; Better Auth (/api/auth/*) uses `message`
+  if (!res.ok) throw Object.assign(new Error(body.error || body.message || res.statusText), { status: res.status });
   return body;
 }
 
@@ -24,14 +25,15 @@ async function upload(path, formData, method = "POST") {
     headers: { "Accept": "application/json" },
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(body.error || res.statusText), { status: res.status });
+  // WREN API errors use `error`; Better Auth (/api/auth/*) uses `message`
+  if (!res.ok) throw Object.assign(new Error(body.error || body.message || res.statusText), { status: res.status });
   return body;
 }
 
 // Auth
 export const getSession  = () => req("/api/auth/get-session").catch(() => null);
 export const signIn      = (email, password) => req("/api/auth/sign-in/email", { method: "POST", body: JSON.stringify({ email, password }) });
-export const signUp      = (name, email, password) => req("/api/auth/sign-up/email", { method: "POST", body: JSON.stringify({ name, email, password }) });
+export const signUp      = (name, email, password) => req("/api/auth/sign-up/email", { method: "POST", body: JSON.stringify({ name, email, password, callbackURL: "/admin/" }) });
 export const signOut     = () => req("/api/auth/sign-out", { method: "POST" });
 
 // Collections
