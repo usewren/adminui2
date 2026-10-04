@@ -57,6 +57,7 @@ function renderLogin() {
             <input class="input" type="password" name="password" autocomplete="current-password" required>
           </div>
           <button class="btn btn-primary" type="submit" style="width:100%">Sign in</button>
+          <p style="text-align:center;margin-top:10px;font-size:13px"><a href="/login?mode=forgot">Forgot password?</a></p>
         </form>
         <div id="register-error" style="display:none"></div>
         <form id="register-form" style="display:none">
@@ -113,7 +114,10 @@ function renderLogin() {
         location.hash = `#/accept/${encodeURIComponent(pendingToken)}`;
       }
     } catch (err) {
-      errEl.innerHTML = alertHtml(err.message);
+      // 403 = email not confirmed (REQUIRE_EMAIL_VERIFICATION=true); the server just sent a new link
+      errEl.innerHTML = alertHtml(/verif/i.test(err.message) || err.status === 403
+        ? "Please confirm your email first. We've just sent you a new confirmation link."
+        : err.message);
     }
   });
 
@@ -127,6 +131,12 @@ function renderLogin() {
       const pendingToken = getPendingAcceptToken();
       await api.signUp(fd.get("name"), fd.get("email"), fd.get("password"));
       const session = await api.getSession();
+      if (!session?.user) {
+        // Confirmation required: the account exists but has no session until the email link is clicked
+        errEl.innerHTML = `<div class="alert alert-success">Account created. Check your email and click the confirmation link, then sign in.</div>`;
+        e.target.reset();
+        return;
+      }
       currentUser = session.user;
       orgInfo = await api.getOrg().catch(() => null);
       await renderApp();
