@@ -6,6 +6,7 @@ import { mountCollections, mountCollection } from "./pages/collections.js";
 import { mountDocument } from "./pages/document.js";
 import { mountTrees, mountTree } from "./pages/trees.js";
 import { mountApiKeys } from "./pages/apikeys.js";
+import { mountConnectedApps } from "./pages/connected-apps.js";
 import { mountCollaborators } from "./pages/collaborators.js";
 import { mountPermissions } from "./pages/permissions.js";
 import { mountAccept } from "./pages/accept.js";
@@ -175,6 +176,7 @@ async function renderApp() {
         <div id="sidebar-collections" class="sidebar-sublist"></div>
         <div class="sidebar-section-label" style="margin-top:1rem">Settings</div>
         <a class="sidebar-link" href="#/settings/apikeys" data-route="apikeys">API Keys</a>
+        <a class="sidebar-link" href="#/settings/connected-apps" data-route="connected-apps">Connected apps</a>
         <a class="sidebar-link" href="#/settings/collaborators" data-route="collaborators">Collaborators</a>
         <a class="sidebar-link" href="#/settings/permissions" data-route="permissions">Permissions</a>
       </nav>
@@ -323,6 +325,9 @@ function route() {
   } else if (p0 === "trees") {
     highlightSidebar(`[data-route="trees"]`);
     mountTrees(main);
+  } else if (p0 === "settings" && p1 === "connected-apps") {
+    highlightSidebar(`[data-route="connected-apps"]`);
+    mountConnectedApps(main);
   } else if (p0 === "settings" && p1 === "apikeys") {
     highlightSidebar(`[data-route="apikeys"]`);
     mountApiKeys(main, orgInfo);

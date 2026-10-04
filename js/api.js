@@ -83,6 +83,10 @@ export const deleteGroup       = (id) => req(`/api/v1/groups/${id}`, { method: "
 export const addGroupMember    = (groupId, userId) => req(`/api/v1/groups/${groupId}/members/${userId}`, { method: "PUT" });
 export const removeGroupMember = (groupId, userId) => req(`/api/v1/groups/${groupId}/members/${userId}`, { method: "DELETE" });
 
+// Connected apps: MCP clients you signed in to WREN (all your orgs)
+export const listConnectedApps  = () => req("/api/v1/connected-apps").then(r => r.apps);
+export const revokeConnectedApp = (clientId) => req(`/api/v1/connected-apps/${encodeURIComponent(clientId)}`, { method: "DELETE" });
+
 // Impersonation: an org admin views the org as one of its members
 export const startImpersonation = (userId) => req(`/api/v1/members/${userId}/impersonate`, { method: "POST" });
 export const getImpersonation   = () => req("/api/v1/impersonation").then(r => r.impersonating);
