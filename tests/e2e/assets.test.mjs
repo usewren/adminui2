@@ -100,7 +100,17 @@ test("replacing a file with identical bytes keeps the current version (deduplica
   await page.waitForSelector("#replace-form");
   const input = await page.$('#replace-form input[type="file"]');
   await input.uploadFile(file("same.txt", "identical bytes"));
-  await page.click('#replace-form button[type="submit"]');
+  // Wait for the upload and the re-read the page does before showing the notice (each
+  // with puppeteer's 30 s default) instead of giving the whole round trip 10 s: under
+  // load (four test files with their own Chrome) it can take longer
+  const isDoc = (r, method) => new URL(r.url()).pathname.endsWith(`/media/${doc.id}`) && r.request().method() === method;
+  const [put] = await Promise.all([
+    page.waitForResponse(r => isDoc(r, "PUT")),
+    page.waitForResponse(r => isDoc(r, "GET")),
+    page.click('#replace-form button[type="submit"]'),
+  ]);
+  assert.equal(put.status(), 200);
+  assert.equal((await put.json()).unchanged, true);
   await waitText(page, "#replace-error .alert-success", "Same file as the current version (v1); no new version was created.");
   assert.match(await text(page, "#tab-content .card-header"), /v1/);
   assert.equal((await owner.api("GET", `/api/v1/media/${doc.id}`)).version, 1);
