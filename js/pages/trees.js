@@ -77,11 +77,13 @@ export async function mountTree(el, name, params) {
 async function renderPathView(el, treeName, treePath, label) {
   render(el, spinner());
   try {
-    // getTreeNode returns 404 for paths that don't exist yet — treat as empty
+    // getTreeNode returns 404 for paths that don't exist yet — treat as empty. It also
+    // answers 404 for an empty folder (a path without document or children), so ask
+    // the parent whether the path is there.
     let node;
-    try { node = await api.getTreeNode(treeName, treePath); }
+    try { node = await api.getTreeNode(treeName, treePath, label); }
     catch (err) {
-      if (err.status === 404) node = { path: treePath, document: null, children: [], pathExists: false };
+      if (err.status === 404) node = { path: treePath, document: null, children: [], pathExists: await isEmptyFolder(treeName, treePath, label) };
       else throw err;
     }
     const doc = node.document;
@@ -99,14 +101,15 @@ async function renderPathView(el, treeName, treePath, label) {
       if (!segment) continue;
       const childPath = prefix === "/" ? "/" + segment : prefix + segment;
       if (!childMap.has(segment)) {
-        // Check if this exact child path has a document (i.e. rel has no further segments)
-        const isExact = !rel.includes("/");
-        childMap.set(segment, { segment, path: childPath, hasDoc: isExact, documentId: isExact ? c.documentId : null, descendantCount: 1 });
+        // Check if this exact child path has a document (i.e. rel has no further segments);
+        // an exact path without documentId is an empty folder
+        const hasDoc = !rel.includes("/") && !!c.documentId;
+        childMap.set(segment, { segment, path: childPath, hasDoc, documentId: hasDoc ? c.documentId : null, descendantCount: 1 });
       } else {
         const entry = childMap.get(segment);
         entry.descendantCount++;
         // If this exact path matches, mark it as having a doc
-        if (rel === segment) { entry.hasDoc = true; entry.documentId = c.documentId; }
+        if (rel === segment && c.documentId) { entry.hasDoc = true; entry.documentId = c.documentId; }
       }
     }
     const children = [...childMap.values()].sort((a, b) => a.segment.localeCompare(b.segment));
@@ -335,6 +338,20 @@ async function renderPathView(el, treeName, treePath, label) {
 
   } catch (err) {
     render(el, alertHtml(err.message));
+  }
+}
+
+// True when treePath is listed under its parent without a document: an empty folder
+// (as "New folder" and "Unassign" leave it). A path whose document just has no version
+// under the label is not one; it's shown as empty, without "Remove folder".
+async function isEmptyFolder(treeName, treePath, label) {
+  if (treePath === "/") return false;
+  const parent = treePath.split("/").slice(0, -1).join("/") || "/";
+  try {
+    const node = await api.getTreeNode(treeName, parent, label);
+    return (node.children ?? []).some(c => c.path === treePath && !c.documentId);
+  } catch {
+    return false;
   }
 }
 

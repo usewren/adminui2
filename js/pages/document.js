@@ -60,7 +60,8 @@ export async function mountDocument(el, collection, id, params) {
 }
 
 // ── Asset tab (binary collections) ───────────────────────────────────────────
-async function renderAsset(el, collection, id) {
+// notice: success message to show after a re-render (e.g. "File replaced successfully.")
+async function renderAsset(el, collection, id, notice = "") {
   render(el, spinner());
   try {
     const doc = await api.getDocument(collection, id);
@@ -95,7 +96,7 @@ async function renderAsset(el, collection, id) {
         <div class="card">
           <div class="card-header">Replace file</div>
           <div class="card-body">
-            <div id="replace-error"></div>
+            <div id="replace-error">${alertHtml(notice, "success")}</div>
             <form id="replace-form">
               <div class="field-row">
                 <div class="field">
@@ -124,6 +125,9 @@ async function renderAsset(el, collection, id) {
         </div>
       </div>`);
 
+    const textPreview = el.querySelector("#text-preview");
+    if (textPreview) loadTextPreview(textPreview, rawUrl);
+
     el.querySelector("#replace-form").addEventListener("submit", async e => {
       e.preventDefault();
       const errEl = el.querySelector("#replace-error");
@@ -132,8 +136,7 @@ async function renderAsset(el, collection, id) {
       if (!file) return;
       try {
         await api.updateAsset(collection, id, file);
-        errEl.innerHTML = `<div class="alert alert-success">File replaced successfully.</div>`;
-        await renderAsset(el, collection, id);
+        await renderAsset(el, collection, id, "File replaced successfully.");
       } catch (err) {
         errEl.innerHTML = alertHtml(err.message);
       }
@@ -172,19 +175,26 @@ function renderAssetPreview(url, mimeType, filename) {
     return `<iframe src="${escHtml(url)}" style="width:100%;height:500px;border:none;border-radius:4px"></iframe>`;
   }
   if (mimeType.startsWith("text/")) {
-    return `<div id="text-preview"><span class="muted">Loading…</span></div>
-      <script>
-        fetch(${JSON.stringify(url)}, {credentials:"include"})
-          .then(r=>r.text())
-          .then(t=>{ document.getElementById("text-preview").innerHTML = '<pre class="code-block" style="max-height:400px;overflow:auto">' + t.replace(/&/g,"&amp;").replace(/</g,"&lt;") + '</pre>'; })
-          .catch(()=>{ document.getElementById("text-preview").textContent = "Could not load preview."; });
-      </script>`;
+    // Filled in by loadTextPreview() once the markup is in the page
+    return `<div id="text-preview"><span class="muted">Loading…</span></div>`;
   }
   return `<a class="btn btn-sm btn-primary" href="${escHtml(url)}" download="${escHtml(filename)}" target="_blank">Download ${escHtml(filename)}</a>`;
 }
 
+/** Fetch a text asset and show it in previewEl (escaped, in a scrollable block) */
+async function loadTextPreview(previewEl, url) {
+  try {
+    const res = await fetch(url, { credentials: "include" });
+    if (!res.ok) throw new Error(res.statusText);
+    previewEl.innerHTML = `<pre class="code-block" style="max-height:400px;overflow:auto">${escHtml(await res.text())}</pre>`;
+  } catch {
+    previewEl.textContent = "Could not load preview.";
+  }
+}
+
 // ── View / edit tab ───────────────────────────────────────────────────────────
-async function renderView(el, collection, id) {
+// notice: success message to show after a re-render (e.g. "Saved.")
+async function renderView(el, collection, id, notice = "") {
   render(el, spinner());
   try {
     const doc = await api.getDocument(collection, id);
@@ -207,7 +217,7 @@ async function renderView(el, collection, id) {
           </div>
         </div>
         <div class="card-body">
-          <div id="view-error"></div>
+          <div id="view-error">${alertHtml(notice, "success")}</div>
           <textarea class="input mono" id="doc-editor" rows="24" style="width:100%">${escHtml(JSON.stringify(data, null, 2))}</textarea>
         </div>
       </div>`);
@@ -220,8 +230,7 @@ async function renderView(el, collection, id) {
       catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
       try {
         await api.updateDocument(collection, id, body);
-        errEl.innerHTML = `<div class="alert alert-success">Saved.</div>`;
-        await renderView(el, collection, id);
+        await renderView(el, collection, id, "Saved.");
       } catch (err) {
         errEl.innerHTML = alertHtml(err.message);
       }

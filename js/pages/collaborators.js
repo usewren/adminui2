@@ -7,11 +7,17 @@ export async function mountCollaborators(el, currentUser, orgInfo) {
   // that follows, which re-renders the page and would otherwise wipe it.
   let inviteNotice = "";
 
+  function orgName() {
+    return orgInfo?.orgs?.find(o => o.id === orgInfo?.current)?.name ?? "this org";
+  }
+
   async function load() {
     render(el, spinner());
     try {
+      // Listing members is for owners and admins: a 403 means "not allowed", not "none"
+      let restricted = false;
       const [members, invites, receivedAll, groups] = await Promise.all([
-        api.listMembers().catch(() => []),
+        api.listMembers().catch(err => { restricted = err.status === 403; return []; }),
         api.listInvites().catch(() => []),
         api.listReceivedInvites().catch(() => []),
         api.listGroups().catch(() => []),
@@ -22,13 +28,13 @@ export async function mountCollaborators(el, currentUser, orgInfo) {
         !inv.acceptedAt && !inv.revokedAt &&
         (!inv.expiresAt || new Date(inv.expiresAt) > now)
       );
-      renderAll(members, invites, received, groups);
+      renderAll(members, invites, received, groups, restricted);
     } catch (err) {
       render(el, alertHtml(err.message));
     }
   }
 
-  function renderAll(members, invites, received, groups) {
+  function renderAll(members, invites, received, groups, restricted) {
     // Role = what someone may manage; groups = which data they can see and change
     const roleOpts = [["member", "Member"], ["admin", "Admin (manages people, keys, rules)"]].map(([v, l]) =>
       `<option value="${v}">${l}</option>`).join("");
@@ -73,6 +79,12 @@ export async function mountCollaborators(el, currentUser, orgInfo) {
 
         ${receivedCallout}
 
+        ${restricted ? `
+        <div class="callout callout--warn" style="background:#fefce8;border-left:3px solid #eab308;padding:14px 16px;border-radius:6px;max-width:540px">
+          <strong>Access restricted.</strong>
+          Members, groups and invites of <strong>${escHtml(orgName())}</strong> can only be managed by the org owner or admin members.
+          Your current membership level does not include this access.
+        </div>` : `
         <div class="tabs" id="collab-tabs">
           <button class="tab${tab === "members" ? " active" : ""}" data-tab="members">
             Members <span class="count-badge">${members.length}</span>
@@ -85,7 +97,7 @@ export async function mountCollaborators(el, currentUser, orgInfo) {
           </button>
         </div>
 
-        <div id="collab-tab-content"></div>
+        <div id="collab-tab-content"></div>`}
       </div>`);
 
     // Accept invite buttons in the callout
@@ -105,6 +117,8 @@ export async function mountCollaborators(el, currentUser, orgInfo) {
         }
       });
     });
+
+    if (restricted) return;
 
     el.querySelector("#collab-tabs").addEventListener("click", e => {
       const btn = e.target.closest(".tab");

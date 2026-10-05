@@ -128,7 +128,8 @@ export function fmtBytes(n) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function principalLabel(principal, members = [], keys = []) {
+/** Readable name for a rule's principal (member:, key: or group: id; others as is) */
+export function principalLabel(principal, members = [], keys = [], groups = []) {
   if (principal.startsWith("member:")) {
     const uid = principal.slice(7);
     const m = members.find(m => m.userId === uid);
@@ -138,6 +139,11 @@ export function principalLabel(principal, members = [], keys = []) {
     const kid = principal.slice(4);
     const k = keys.find(k => k.id === kid);
     return k ? `key: ${k.name} (${k.keyPrefix}…)` : principal;
+  }
+  if (principal.startsWith("group:")) {
+    const gid = principal.slice(6);
+    const g = groups.find(g => g.id === gid);
+    return g ? `${g.name} (group)` : principal;
   }
   return principal;
 }

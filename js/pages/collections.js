@@ -1,6 +1,15 @@
 import * as api from "../api.js";
 import { render, spinner, alert as alertHtml, escHtml, fmtDate, applyDisplayRule, fmtBytes } from "../ui.js";
 
+// Names the API routes itself (/api/v1/tree, /api/v1/keys, …): a collection with one of
+// these names could never be reached, and its _schema PUT would hit that route instead
+// (e.g. "tree" would create a tree called "_schema"). Names starting with "_" are
+// reserved too.
+const RESERVED_COLLECTIONS = new Set([
+  "tree", "keys", "org", "orgs", "invites", "members", "groups", "permissions", "webhooks",
+  "impersonation", "connected-apps", "landing-stats", "projects", "me", "collections",
+]);
+
 // ── Collections list ──────────────────────────────────────────────────────────
 export async function mountCollections(el, collections, { refreshCollections }) {
   render(el, spinner());
@@ -63,6 +72,10 @@ export async function mountCollections(el, collections, { refreshCollections }) 
     const name = new FormData(e.target).get("name");
     const errEl = el.querySelector("#col-error");
     errEl.innerHTML = "";
+    if (RESERVED_COLLECTIONS.has(name) || name.startsWith("_")) {
+      errEl.innerHTML = alertHtml(`"${name}" is a reserved name. Choose another collection name.`);
+      return;
+    }
     try {
       await api.setSchema(name, { collectionType: "json", schema: { type: "object", additionalProperties: true } });
       await refreshCollections();
@@ -162,11 +175,7 @@ async function renderDocuments(el, collection, collectionType, displayNameRule, 
           <div class="card-body">
             <form id="create-doc-form">
               <div class="field">
-                <label class="field-label">Document ID <span class="field-hint">(leave blank to auto-generate)</span></label>
-                <input class="input" name="id" placeholder="optional">
-              </div>
-              <div class="field">
-                <label class="field-label">JSON data</label>
+                <label class="field-label">JSON data <span class="field-hint">(the document ID is generated)</span></label>
                 <textarea class="input mono" name="data" rows="6" placeholder="{}">{}</textarea>
               </div>
               <div id="new-doc-error"></div>
@@ -256,8 +265,6 @@ async function renderDocuments(el, collection, collectionType, displayNameRule, 
           let data;
           try { data = JSON.parse(fd.get("data") || "{}"); }
           catch { errEl.innerHTML = alertHtml("Invalid JSON"); return; }
-          const docId = fd.get("id")?.trim();
-          if (docId) data = { ...data, id: docId };
           res = await api.createDocument(collection, data);
         }
         const id = res.id ?? res.document?.id;
@@ -282,7 +289,8 @@ async function renderDocuments(el, collection, collectionType, displayNameRule, 
 }
 
 // ── Schema tab ────────────────────────────────────────────────────────────────
-async function renderSchema(el, collection, schemaData) {
+// notice: success message to show after a re-render (e.g. "Schema saved.")
+async function renderSchema(el, collection, schemaData, notice = "") {
   const collectionType = schemaData?.collectionType ?? "json";
   const displayName = schemaData?.displayName ?? "";
   const schema = schemaData?.schema ?? {};
@@ -304,7 +312,7 @@ async function renderSchema(el, collection, schemaData) {
           </div>
         </div>
         <div class="card-body">
-          <div id="schema-error"></div>
+          <div id="schema-error">${alertHtml(notice, "success")}</div>
 
           <div class="field" style="margin-bottom:1.25rem">
             <label class="field-label">Collection type</label>
@@ -445,10 +453,9 @@ async function renderSchema(el, collection, schemaData) {
         listColumns: listColumnsVal.length > 0 ? listColumnsVal : null,
         schema: colType === "binary" ? undefined : jsonSchema,
       });
-      errEl.innerHTML = `<div class="alert alert-success">Schema saved.</div>`;
-      // Reload to reflect updated state
+      // Reload to reflect updated state; the confirmation is shown in the new render
       const updated = await api.getSchema(collection).catch(() => null);
-      await renderSchema(el, collection, updated);
+      await renderSchema(el, collection, updated, "Schema saved.");
     } catch (err) {
       errEl.innerHTML = alertHtml(err.message);
     }
@@ -472,32 +479,21 @@ async function renderAccess(el, collection) {
 
   async function load() {
     try {
-      const [perms, members, keys] = await Promise.all([
+      const [perms, members, keys, groups] = await Promise.all([
         api.listPermissions(),
         api.listMembers().catch(() => []),
         api.listKeys().catch(() => []),
+        api.listGroups().catch(() => []),
       ]);
       const direct = perms.filter(p => p.resource === resource);
       const inherited = perms.filter(p => p.resource === "collection:*" || p.resource === "*");
-      renderAccessTab(direct, inherited, members, keys);
+      renderAccessTab(direct, inherited, members, keys, groups);
     } catch (err) {
       render(el, alertHtml(err.message));
     }
   }
 
-  function pl(p) {
-    if (p.startsWith("member:")) {
-      const uid = p.slice(7);
-      return uid;
-    }
-    if (p.startsWith("key:")) {
-      const kid = p.slice(4);
-      return `key:${kid}`;
-    }
-    return p;
-  }
-
-  function renderAccessTab(direct, inherited, members, keys) {
+  function renderAccessTab(direct, inherited, members, keys, groups) {
     function principalLabel(p) {
       if (p.startsWith("member:")) {
         const uid = p.slice(7);
@@ -508,6 +504,11 @@ async function renderAccess(el, collection) {
         const kid = p.slice(4);
         const k = keys.find(k => k.id === kid);
         return k ? `key: ${k.name}` : p;
+      }
+      if (p.startsWith("group:")) {
+        const gid = p.slice(6);
+        const g = groups.find(g => g.id === gid);
+        return g ? `${g.name} (group)` : p;
       }
       return p;
     }
