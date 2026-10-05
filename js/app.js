@@ -183,7 +183,6 @@ async function renderApp() {
       <div class="sidebar-footer">
         <span class="sidebar-user">${escHtml(currentUser.email ?? currentUser.name ?? "")}</span>
         <div style="display:flex;gap:6px;align-items:center">
-          <a class="btn btn-sm" id="old-admin-link" href="/oldadmin${location.hash}" target="_blank" title="Same page in old admin">Old UI ↗</a>
           <button class="btn btn-sm" id="sign-out-btn">Sign out</button>
         </div>
       </div>
@@ -255,8 +254,6 @@ async function renderApp() {
 
 function onHashChange() {
   route();
-  const link = document.getElementById("old-admin-link");
-  if (link) link.href = `/oldadmin${location.hash}`;
 }
 
 async function refreshTrees() {
