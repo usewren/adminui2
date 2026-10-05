@@ -135,8 +135,11 @@ async function renderAsset(el, collection, id, notice = "") {
       const file = e.target.file.files[0];
       if (!file) return;
       try {
-        await api.updateAsset(collection, id, file);
-        await renderAsset(el, collection, id, "File replaced successfully.");
+        const res = await api.updateAsset(collection, id, file);
+        // Same bytes, name and type as the current version: the server keeps it, no new version
+        await renderAsset(el, collection, id, res.unchanged
+          ? `Same file as the current version (v${res.version}); no new version was created.`
+          : "File replaced successfully.");
       } catch (err) {
         errEl.innerHTML = alertHtml(err.message);
       }

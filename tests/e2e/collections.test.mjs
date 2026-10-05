@@ -62,7 +62,7 @@ test("reserved collection names (API routes, _-prefixed) are rejected before any
   await openAdmin(page);
   await page.waitForSelector("#new-col-btn");
   await page.click("#new-col-btn");
-  for (const name of ["tree", "keys", "_events", "_private"]) {
+  for (const name of ["tree", "keys", "retention", "_events", "_private"]) {
     await setValue(page, '#create-col-form [name="name"]', name);
     await page.click('#create-col-form button[type="submit"]');
     await waitText(page, "#col-error .alert-error", `"${name}" is a reserved name`);

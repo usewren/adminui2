@@ -9,6 +9,7 @@ import { mountApiKeys } from "./pages/apikeys.js";
 import { mountConnectedApps } from "./pages/connected-apps.js";
 import { mountCollaborators } from "./pages/collaborators.js";
 import { mountPermissions } from "./pages/permissions.js";
+import { mountRetention } from "./pages/retention.js";
 import { mountAccept } from "./pages/accept.js";
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -179,6 +180,7 @@ async function renderApp() {
         <a class="sidebar-link" href="#/settings/connected-apps" data-route="connected-apps">Connected apps</a>
         <a class="sidebar-link" href="#/settings/collaborators" data-route="collaborators">Collaborators</a>
         <a class="sidebar-link" href="#/settings/permissions" data-route="permissions">Permissions</a>
+        <a class="sidebar-link" href="#/settings/retention" data-route="retention">Retention</a>
       </nav>
       <div class="sidebar-footer">
         <span class="sidebar-user">${escHtml(currentUser.email ?? currentUser.name ?? "")}</span>
@@ -338,6 +340,9 @@ function route() {
   } else if (p0 === "settings" && p1 === "permissions") {
     highlightSidebar(`[data-route="permissions"]`);
     mountPermissions(main, orgInfo);
+  } else if (p0 === "settings" && p1 === "retention") {
+    highlightSidebar(`[data-route="retention"]`);
+    mountRetention(main, currentUser, orgInfo);
   } else {
     // Default: collections list
     highlightSidebar(`[data-route="collections"]`);

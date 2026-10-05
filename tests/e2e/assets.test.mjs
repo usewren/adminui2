@@ -93,6 +93,19 @@ test("replace the file → v2; history offers a download per version; metadata e
   assert.equal(v1, "first text");
 });
 
+test("replacing a file with identical bytes keeps the current version (deduplicated)", async () => {
+  const doc = await uploadAsset(owner, "media", "same.txt", "identical bytes", "text/plain");
+  const page = await ctx.newPage({ acct: owner });
+  await openAdmin(page, `#/collections/media/${doc.id}`);
+  await page.waitForSelector("#replace-form");
+  const input = await page.$('#replace-form input[type="file"]');
+  await input.uploadFile(file("same.txt", "identical bytes"));
+  await page.click('#replace-form button[type="submit"]');
+  await waitText(page, "#replace-error .alert-success", "Same file as the current version (v1); no new version was created.");
+  assert.match(await text(page, "#tab-content .card-header"), /v1/);
+  assert.equal((await owner.api("GET", `/api/v1/media/${doc.id}`)).version, 1);
+});
+
 test("text assets show a preview of their content", async () => {
   const doc = await uploadAsset(owner, "media", "readme.txt", "hello preview", "text/plain");
   const page = await ctx.newPage({ acct: owner });
