@@ -13,6 +13,7 @@ Vanilla JavaScript — no build step, no framework dependencies. Served at `/adm
 - API key management
 - Collaborator invites and org switching
 - Permission rule editor
+- Version retention policies (preview, apply, recent runs)
 
 ## Links
 

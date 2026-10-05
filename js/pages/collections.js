@@ -8,6 +8,7 @@ import { render, spinner, alert as alertHtml, escHtml, fmtDate, applyDisplayRule
 const RESERVED_COLLECTIONS = new Set([
   "tree", "keys", "org", "orgs", "invites", "members", "groups", "permissions", "webhooks",
   "impersonation", "connected-apps", "landing-stats", "projects", "me", "collections",
+  "retention",
 ]);
 
 // ── Collections list ──────────────────────────────────────────────────────────

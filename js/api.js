@@ -87,6 +87,14 @@ export const removeGroupMember = (groupId, userId) => req(`/api/v1/groups/${grou
 export const listConnectedApps  = () => req("/api/v1/connected-apps").then(r => r.apps);
 export const revokeConnectedApp = (clientId) => req(`/api/v1/connected-apps/${encodeURIComponent(clientId)}`, { method: "DELETE" });
 
+// Retention policies: "*" is the org default, any other name a collection's own policy
+const retentionPath = (name) => `/api/v1/retention/${encodeURIComponent(name)}`;
+export const getRetention     = () => req("/api/v1/retention");
+export const setRetention     = (name, rules) => req(retentionPath(name), { method: "PUT", body: JSON.stringify(rules) });
+export const deleteRetention  = (name) => req(retentionPath(name), { method: "DELETE" });
+export const previewRetention = (name, rules) => req(`${retentionPath(name)}/_preview`, { method: "POST", body: JSON.stringify(rules) });
+export const applyRetention   = () => req("/api/v1/retention/_apply", { method: "POST" });
+
 // Impersonation: an org admin views the org as one of its members
 export const startImpersonation = (userId) => req(`/api/v1/members/${userId}/impersonate`, { method: "POST" });
 export const getImpersonation   = () => req("/api/v1/impersonation").then(r => r.impersonating);
